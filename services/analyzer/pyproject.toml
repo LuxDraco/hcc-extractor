@@ -2,7 +2,7 @@
 name = "hcc-analyzer-service"
 version = "0.1.0"
 description = "Analysis service for determining HCC relevance of medical conditions"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["黒い龍 <ponchogcja@gmail.com>"]
 packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
