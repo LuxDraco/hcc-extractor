@@ -89,6 +89,18 @@ API_REQUEST_TIME = Histogram(
     ["method", "endpoint"],
 )
 
+# HCC metrics
+HCC_OPERATIONS = Counter(
+    "hcc_operations_total",
+    "Total number of HCC operations",
+    ["operation"],
+)
+HCC_OPERATION_TIME = Histogram(
+    "hcc_operation_time_seconds",
+    "HCC operation time in seconds",
+    ["operation"],
+)
+
 
 def setup_metrics_endpoint(app: FastAPI) -> None:
     """
