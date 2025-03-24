@@ -1,0 +1,39 @@
+# Dynamic configuration for Traefik
+http:
+  middlewares:
+    securityHeaders:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+
+    rateLimit:
+      rateLimit:
+        average: 100
+        burst: 50
+
+    gzip:
+      compress: {}
+
+  routers:
+    api-gateway:
+      rule: "Host(`hcc-extractor.local`)"
+      service: api-gateway
+      middlewares:
+        - securityHeaders
+        - gzip
+        - rateLimit
+      entrypoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    api-gateway:
+      loadBalancer:
+        servers:
+          - url: "http://api-gateway:8000"
