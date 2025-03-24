@@ -66,7 +66,7 @@ class Settings(BaseSettings):
 
     # Database settings
     POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: str = "5432"
+    POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: SecretStr = Field(default=SecretStr("postgres"))
     POSTGRES_DB: str = "hcc_extractor"

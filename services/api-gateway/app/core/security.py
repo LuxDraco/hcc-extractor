@@ -11,49 +11,18 @@ from typing import Any, Dict, Optional, Union
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.db.models.user import User
 from app.schemas.token import TokenPayload
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from app.utils.password import verify_password  # Import from utils instead
 
 # OAuth2 scheme for token-based authentication
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_PREFIX}/auth/login"
 )
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verify a password against a hash.
-
-    Args:
-        plain_password: The plain-text password
-        hashed_password: The hashed password
-
-    Returns:
-        True if the password matches the hash, False otherwise
-    """
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """
-    Hash a password.
-
-    Args:
-        password: The plain-text password
-
-    Returns:
-        The hashed password
-    """
-    return pwd_context.hash(password)
 
 
 def create_access_token(
@@ -86,7 +55,7 @@ def create_access_token(
 
 async def get_current_user(
         token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
-) -> User:
+):
     """
     Get the current authenticated user from a JWT token.
 
@@ -100,6 +69,9 @@ async def get_current_user(
     Raises:
         HTTPException: If authentication fails
     """
+    # Import User inside function to avoid circular import
+    from app.db.models.user import User
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -136,8 +108,8 @@ async def get_current_user(
 
 
 async def get_current_active_superuser(
-        current_user: User = Depends(get_current_user),
-) -> User:
+        current_user=Depends(get_current_user),
+):
     """
     Get the current authenticated superuser.
 
