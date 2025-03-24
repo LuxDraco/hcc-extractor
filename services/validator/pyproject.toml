@@ -2,7 +2,7 @@
 name = "hcc-validator-service"
 version = "0.1.0"
 description = "Validation service for HCC conditions from clinical notes"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["黒い龍 <ponchogcja@gmail.com>"]
 packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
