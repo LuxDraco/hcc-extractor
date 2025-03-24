@@ -269,7 +269,7 @@ async def update_webhook(
 
 @router.delete(
     "/{webhook_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
     summary="Delete webhook",
     description="Delete a webhook."
 )
@@ -328,7 +328,10 @@ async def delete_webhook(
         user_id=str(current_user.id),
     )
 
-    return None
+    return {
+        "success": True,
+        "message": "Webhook deleted successfully",
+    }
 
 
 @router.post(

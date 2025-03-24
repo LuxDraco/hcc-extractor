@@ -68,14 +68,121 @@ async def batch_upload(
         user_id=str(current_user.id),
     )
 
-    # TODO: Implement batch upload functionality
-    # This is a placeholder endpoint that should be implemented
-    # according to project requirements
+    if not files:
+        logger.warning("No files provided for batch upload")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No files provided",
+        )
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Batch upload not implemented yet",
+    # Limit the number of files in a single batch
+    max_batch_size = 20  # Configurable limit
+    if len(files) > max_batch_size:
+        logger.warning(
+            "Batch upload exceeds maximum size",
+            provided=len(files),
+            max_size=max_batch_size,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum batch size is {max_batch_size} files",
+        )
+
+    # Track created documents
+    created_documents = []
+    errors = []
+
+    # Process each file
+    for file in files:
+        try:
+            # Validate file type
+            if not document_service.is_valid_document_type(file.content_type):
+                errors.append({
+                    "filename": file.filename,
+                    "error": "Invalid document type"
+                })
+                continue
+
+            # Read file content
+            content = await file.read()
+
+            # Store the document
+            storage_info = await storage_service.store_document(
+                content=content,
+                filename=file.filename,
+                content_type=file.content_type,
+            )
+
+            # Create document in database
+            document_in = DocumentCreate(
+                filename=file.filename,
+                file_size=len(content),
+                content_type=file.content_type,
+                storage_type=storage_info["storage_type"],
+                storage_path=storage_info["storage_path"],
+                description=None,  # No description in batch mode
+                priority=priority,
+                user_id=current_user.id,
+            )
+
+            document = await document_service.create_document(db, document_in)
+            created_documents.append(document)
+
+            # Queue for processing (non-blocking)
+            if background_tasks:
+                # Use background tasks to publish without blocking
+                background_tasks.add_task(
+                    message_broker.publish_document_uploaded,
+                    document_id=str(document.id),
+                    storage_path=document.storage_path,
+                    storage_type=document.storage_type.value,
+                    content_type=document.content_type,
+                    priority=priority,
+                )
+            else:
+                # Publish directly if background tasks not available
+                await message_broker.publish_document_uploaded(
+                    document_id=str(document.id),
+                    storage_path=document.storage_path,
+                    storage_type=document.storage_type.value,
+                    content_type=document.content_type,
+                    priority=priority,
+                )
+
+        except Exception as e:
+            logger.exception(
+                "Error processing file in batch upload",
+                filename=file.filename,
+                error=str(e),
+            )
+            errors.append({
+                "filename": file.filename,
+                "error": str(e)
+            })
+
+    # Log summary
+    logger.info(
+        "Batch upload completed",
+        total=len(files),
+        successful=len(created_documents),
+        failed=len(errors),
     )
+
+    # If no documents were created, return an error
+    if not created_documents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to process any documents: {errors}",
+        )
+
+    # Return both created documents and errors
+    return {
+        "items": created_documents,
+        "total": len(created_documents),
+        "skip": 0,
+        "limit": len(created_documents),
+        "errors": errors,
+    }
 
 
 @router.post(
@@ -110,14 +217,212 @@ async def batch_process(
         user_id=str(current_user.id),
     )
 
-    # TODO: Implement batch processing functionality
-    # This is a placeholder endpoint that should be implemented
-    # according to project requirements
+    if not document_ids:
+        logger.warning("No document IDs provided for batch processing")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No document IDs provided",
+        )
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Batch processing not implemented yet",
+    # Limit the number of documents in a single batch
+    max_batch_size = 50  # Configurable limit
+    if len(document_ids) > max_batch_size:
+        logger.warning(
+            "Batch processing exceeds maximum size",
+            provided=len(document_ids),
+            max_size=max_batch_size,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum batch size is {max_batch_size} documents",
+        )
+
+    # Track successful and failed operations
+    successful = []
+    failed = []
+
+    # Process each document
+    for doc_id in document_ids:
+        try:
+            # Get document
+            document = await document_service.get_document(db, doc_id)
+
+            if not document:
+                failed.append({
+                    "id": str(doc_id),
+                    "error": "Document not found"
+                })
+                continue
+
+            # Check permissions
+            if (
+                    not current_user.is_superuser
+                    and document.user_id
+                    and document.user_id != current_user.id
+            ):
+                failed.append({
+                    "id": str(doc_id),
+                    "error": "Not authorized to reprocess this document"
+                })
+                continue
+
+            # Reset document status
+            document = await document_service.update_document_status(
+                db,
+                doc_id,
+                ProcessingStatus.PENDING,
+            )
+
+            # Publish message to processing queue
+            await message_broker.publish_document_uploaded(
+                document_id=str(document.id),
+                storage_path=document.storage_path,
+                storage_type=document.storage_type.value,
+                content_type=document.content_type,
+                priority=True,  # Prioritize reprocessing
+            )
+
+            successful.append(str(doc_id))
+
+        except Exception as e:
+            logger.exception(
+                "Error reprocessing document in batch",
+                document_id=str(doc_id),
+                error=str(e),
+            )
+            failed.append({
+                "id": str(doc_id),
+                "error": str(e)
+            })
+
+    # Log summary
+    logger.info(
+        "Batch processing completed",
+        total=len(document_ids),
+        successful=len(successful),
+        failed=len(failed),
     )
+
+    # Return results
+    return {
+        "successful": successful,
+        "failed": failed,
+        "total": len(document_ids),
+    }
+
+
+@router.delete(
+    "/",
+    status_code=status.HTTP_200_OK,  # Changed to 200 to return result info
+    summary="Delete multiple documents",
+    description="Delete multiple documents in a single request.",
+)
+async def batch_delete(
+        document_ids: List[uuid.UUID],
+        db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(require_admin_role),
+        document_service: DocumentService = Depends(),
+        storage_service: StorageService = Depends(),
+) -> Any:
+    """
+    Delete multiple documents in a single request.
+
+    Args:
+        document_ids: IDs of documents to delete
+        db: Database session
+        current_user: Current authenticated user (must be admin)
+        document_service: Document service
+        storage_service: Storage service
+
+    Returns:
+        Deletion status
+    """
+    logger.info(
+        "Batch deletion requested",
+        document_count=len(document_ids),
+        user_id=str(current_user.id),
+    )
+
+    if not document_ids:
+        logger.warning("No document IDs provided for batch deletion")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No document IDs provided",
+        )
+
+    # Limit the number of documents in a single batch
+    max_batch_size = 100  # Configurable limit
+    if len(document_ids) > max_batch_size:
+        logger.warning(
+            "Batch deletion exceeds maximum size",
+            provided=len(document_ids),
+            max_size=max_batch_size,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maximum batch size is {max_batch_size} documents",
+        )
+
+    # Track successful and failed operations
+    successful = []
+    failed = []
+
+    # Process each document
+    for doc_id in document_ids:
+        try:
+            # Get document
+            document = await document_service.get_document(db, doc_id)
+
+            if not document:
+                failed.append({
+                    "id": str(doc_id),
+                    "error": "Document not found"
+                })
+                continue
+
+            # Delete from storage
+            try:
+                await storage_service.delete_document(
+                    storage_type=document.storage_type.value,
+                    storage_path=document.storage_path,
+                )
+            except Exception as storage_e:
+                logger.warning(
+                    "Error deleting document from storage",
+                    document_id=str(doc_id),
+                    error=str(storage_e),
+                )
+                # Continue with DB deletion even if storage deletion fails
+
+            # Delete from database
+            await document_service.delete_document(db, doc_id)
+            successful.append(str(doc_id))
+
+        except Exception as e:
+            logger.exception(
+                "Error deleting document in batch",
+                document_id=str(doc_id),
+                error=str(e),
+            )
+            failed.append({
+                "id": str(doc_id),
+                "error": str(e)
+            })
+
+    # Log summary
+    logger.info(
+        "Batch deletion completed",
+        total=len(document_ids),
+        successful=len(successful),
+        failed=len(failed),
+    )
+
+    # Return results
+    return {
+        "successful": successful,
+        "failed": failed,
+        "total": len(document_ids),
+    }
 
 
 @router.get(
@@ -169,45 +474,3 @@ async def batch_status(
         "recent_documents": [doc.id for doc in recent_documents],
         "total_documents": sum(status_counts.values()),
     }
-
-
-@router.delete(
-    "/",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete multiple documents",
-    description="Delete multiple documents in a single request.",
-)
-async def batch_delete(
-        document_ids: List[uuid.UUID],
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(require_admin_role),
-        document_service: DocumentService = Depends(),
-        storage_service: StorageService = Depends(),
-) -> Any:
-    """
-    Delete multiple documents in a single request.
-
-    Args:
-        document_ids: IDs of documents to delete
-        db: Database session
-        current_user: Current authenticated user (must be admin)
-        document_service: Document service
-        storage_service: Storage service
-
-    Returns:
-        No content
-    """
-    logger.info(
-        "Batch deletion requested",
-        document_count=len(document_ids),
-        user_id=str(current_user.id),
-    )
-
-    # TODO: Implement batch deletion functionality
-    # This is a placeholder endpoint that should be implemented
-    # according to project requirements
-
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Batch deletion not implemented yet",
-    )

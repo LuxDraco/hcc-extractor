@@ -271,7 +271,7 @@ async def get_document(
 
 @router.delete(
     "/{document_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
     summary="Delete document",
     description="Delete a document and its associated data.",
 )
@@ -351,7 +351,10 @@ async def delete_document(
         # Record metrics
         record_document_processed("deleted")
 
-        return None
+        return {
+            "successful": True,
+            "message": "Document deleted successfully",
+        }
 
     except Exception as e:
         logger.exception(

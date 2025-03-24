@@ -15,6 +15,8 @@ from app.db.models.user import User
 from app.db.session import get_db
 from app.schemas.hcc import HCCCodeRead, HCCCodeList, HCCCategory
 
+from app.services.hcc import HCCService
+
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
