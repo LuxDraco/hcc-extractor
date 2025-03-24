@@ -33,11 +33,11 @@ def configure_logging(log_level: LogLevel = LogLevel.INFO) -> None:
         level=log_level.upper(),
     )
 
-    # Configure timestamp processor
+    # Configure timestamp processor with correct format string
     def timestamper(logger: Any, name: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Add ISO-8601 formatted timestamp to the event dict."""
         event_dict["timestamp"] = time.strftime(
-            "%Y-%m-%dT%H:%M:%S.%fZ", time.gmtime()
+            "%Y-%m-%dT%H:%M:%S", time.gmtime()
         )
         return event_dict
 
