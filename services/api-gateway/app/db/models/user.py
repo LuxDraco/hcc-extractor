@@ -11,7 +11,7 @@ from sqlalchemy import Boolean, DateTime, Enum, String, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.security import get_password_hash, verify_password
+from app.utils.password import get_password_hash, verify_password
 from app.db.base import Base
 
 # Type variable for User class
