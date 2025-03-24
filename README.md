@@ -11,7 +11,7 @@ This system streamlines the process of reviewing clinical progress notes to extr
 - Automatic extraction of medical conditions and their associated codes from clinical progress notes
 - Determination of HCC-relevance using reference data
 - Modular architecture with separation of concerns
-- Built with Vertex AI Gemini 1.5 Flash and LangGraph for optimal performance
+- Built with Vertex AI Gemini Flash and LangGraph for optimal performance
 - Containerized deployment for easy installation and scaling
 - Event-driven architecture with RabbitMQ for reliable message passing
 - Storage watching capabilities for local, S3, and GCS file systems
