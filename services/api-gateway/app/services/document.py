@@ -342,3 +342,89 @@ class DocumentService:
             List of documents with the specified status
         """
         return await Document.get_by_status(db, status, skip=skip, limit=limit)
+
+    async def count_documents_by_status(
+            self,
+            db: AsyncSession,
+            status: ProcessingStatus,
+            *,
+            user_id: Optional[uuid.UUID] = None,
+    ) -> int:
+        """
+        Count documents with a specific status.
+
+        Args:
+            db: Database session
+            status: Processing status
+            user_id: Filter by user ID
+
+        Returns:
+            Number of documents with the specified status
+        """
+        start_time = time.time()
+
+        # Build query
+        stmt = select(func.count()).select_from(Document)
+
+        # Add filters
+        stmt = stmt.where(Document.status == status)
+
+        if user_id:
+            stmt = stmt.where(Document.user_id == user_id)
+
+        # Execute query
+        result = await db.execute(stmt)
+        count = result.scalar_one()
+
+        # Record query time
+        query_time = time.time() - start_time
+        DB_QUERY_TIME.labels(query_type="count", table="documents").observe(query_time)
+
+        return count
+
+    async def get_recent_documents(
+            self,
+            db: AsyncSession,
+            *,
+            limit: int = 10,
+            user_id: Optional[uuid.UUID] = None,
+    ) -> List[Document]:
+        """
+        Get recently processed documents.
+
+        Args:
+            db: Database session
+            limit: Maximum number of records to return
+            user_id: Filter by user ID
+
+        Returns:
+            List of recently processed documents
+        """
+        start_time = time.time()
+
+        # Build query
+        stmt = select(Document)
+
+        # Add filters
+        if user_id:
+            stmt = stmt.where(Document.user_id == user_id)
+
+        # Add completed/failed filter to show only processed documents
+        stmt = stmt.where(
+            (Document.status == ProcessingStatus.COMPLETED) |
+            (Document.status == ProcessingStatus.FAILED)
+        )
+
+        # Add sorting and limit
+        stmt = stmt.order_by(Document.processing_completed_at.desc().nullslast())
+        stmt = stmt.limit(limit)
+
+        # Execute query
+        result = await db.execute(stmt)
+        documents = result.scalars().all()
+
+        # Record query time
+        query_time = time.time() - start_time
+        DB_QUERY_TIME.labels(query_type="select", table="documents").observe(query_time)
+
+        return list(documents)
