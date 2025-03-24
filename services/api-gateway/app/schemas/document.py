@@ -131,4 +131,4 @@ class ValidationResult(BaseModel):
     """Schema for validation result."""
     document_id: str = Field(..., description="ID of the document")
     conditions: List[ConditionBase] = Field(..., description="Validated conditions")
-    metadata: Dict[str, Any] = Field({}, description="Additional metadata")
+    doc_metadata: Dict[str, Any] = Field({}, description="Additional metadata")
