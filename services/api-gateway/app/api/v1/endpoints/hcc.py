@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_current_user_optional
 from app.db.models.user import User
 from app.db.session import get_db
-from app.schemas.hcc import HCCCodeRead, HCCCodeList, HCCCategory
+from app.schemas.hcc import HCCCodeRead, HCCCodeList, HCCCategory, HCCRelevanceResult, HCCCodeRequest
 
 from app.services.hcc import HCCService
 
@@ -35,6 +35,7 @@ async def list_hcc_codes(
         category: Optional[str] = Query(None),
         db: AsyncSession = Depends(get_db),
         current_user: Optional[User] = Depends(get_current_user_optional),
+        hcc_service: HCCService = Depends(),
 ) -> Any:
     """
     List HCC-relevant diagnosis codes with pagination and filtering.
@@ -46,6 +47,7 @@ async def list_hcc_codes(
         category: Filter by HCC category
         db: Database session
         current_user: Current user (optional)
+        hcc_service: HCC service
 
     Returns:
         List of HCC codes
@@ -59,35 +61,16 @@ async def list_hcc_codes(
         user_id=current_user.id if current_user else None,
     )
 
-    # TODO: Implement HCC code listing functionality
-    # This is a placeholder endpoint that should be implemented
-    # based on the HCC_relevant_codes.csv data
-
-    # For now, return mock data
-    sample_codes = [
-        {
-            "code": "E11.9",
-            "description": "Type 2 diabetes mellitus without complications",
-            "category": "Diabetes",
-            "risk_score": 0.104,
-        },
-        {
-            "code": "I50.9",
-            "description": "Heart failure, unspecified",
-            "category": "Congestive Heart Failure",
-            "risk_score": 0.323,
-        },
-        {
-            "code": "J44.9",
-            "description": "Chronic obstructive pulmonary disease, unspecified",
-            "category": "COPD",
-            "risk_score": 0.351,
-        },
-    ]
+    items, total = await hcc_service.list_hcc_codes(
+        skip=skip,
+        limit=limit,
+        search=search,
+        category=category,
+    )
 
     return {
-        "items": sample_codes,
-        "total": 3,
+        "items": items,
+        "total": total,
         "skip": skip,
         "limit": limit,
     }
@@ -103,6 +86,7 @@ async def get_hcc_code(
         code: str = Path(..., description="ICD-10 code"),
         db: AsyncSession = Depends(get_db),
         current_user: Optional[User] = Depends(get_current_user_optional),
+        hcc_service: HCCService = Depends(),
 ) -> Any:
     """
     Get detailed information about a specific HCC code.
@@ -111,6 +95,7 @@ async def get_hcc_code(
         code: ICD-10 code
         db: Database session
         current_user: Current user (optional)
+        hcc_service: HCC service
 
     Returns:
         HCC code details
@@ -124,42 +109,9 @@ async def get_hcc_code(
         user_id=current_user.id if current_user else None,
     )
 
-    # TODO: Implement HCC code details functionality
-    # This is a placeholder endpoint that should be implemented
-    # based on the HCC_relevant_codes.csv data
+    hcc_code = await hcc_service.get_hcc_code(code)
 
-    # For demo purposes, return mock data for a few codes
-    sample_codes = {
-        "E11.9": {
-            "code": "E11.9",
-            "description": "Type 2 diabetes mellitus without complications",
-            "category": "Diabetes",
-            "risk_score": 0.104,
-            "related_codes": ["E11.0", "E11.1", "E11.2", "E11.3"],
-            "documentation_requirements": "Must document type of diabetes, any complications, and current treatment.",
-            "common_errors": "Missing specificity, not documenting treatment plan.",
-        },
-        "I50.9": {
-            "code": "I50.9",
-            "description": "Heart failure, unspecified",
-            "category": "Congestive Heart Failure",
-            "risk_score": 0.323,
-            "related_codes": ["I50.1", "I50.2", "I50.3", "I50.4"],
-            "documentation_requirements": "Document type (systolic, diastolic, combined), severity, and current treatment.",
-            "common_errors": "Not specifying type, missing ejection fraction documentation.",
-        },
-        "J44.9": {
-            "code": "J44.9",
-            "description": "Chronic obstructive pulmonary disease, unspecified",
-            "category": "COPD",
-            "risk_score": 0.351,
-            "related_codes": ["J44.0", "J44.1", "J41.0", "J43.9"],
-            "documentation_requirements": "Document severity, exacerbation status, and current treatment.",
-            "common_errors": "Not documenting severity or using non-specific terminology.",
-        },
-    }
-
-    if code not in sample_codes:
+    if not hcc_code:
         logger.warning(
             "HCC code not found",
             code=code,
@@ -169,7 +121,7 @@ async def get_hcc_code(
             detail="HCC code not found",
         )
 
-    return sample_codes[code]
+    return hcc_code
 
 
 @router.get(
@@ -181,6 +133,7 @@ async def get_hcc_code(
 async def list_hcc_categories(
         db: AsyncSession = Depends(get_db),
         current_user: Optional[User] = Depends(get_current_user_optional),
+        hcc_service: HCCService = Depends(),
 ) -> Any:
     """
     Get a list of all HCC categories and their descriptions.
@@ -188,6 +141,7 @@ async def list_hcc_categories(
     Args:
         db: Database session
         current_user: Current user (optional)
+        hcc_service: HCC service
 
     Returns:
         List of HCC categories
@@ -197,36 +151,8 @@ async def list_hcc_categories(
         user_id=current_user.id if current_user else None,
     )
 
-    # TODO: Implement HCC categories functionality
-    # This is a placeholder endpoint that should be implemented
-    # based on the HCC_relevant_codes.csv data
-
-    # For now, return mock data
-    sample_categories = [
-        {
-            "id": "HCC19",
-            "name": "Diabetes",
-            "description": "Diabetes with or without complications",
-            "avg_risk_score": 0.104,
-            "code_count": 15,
-        },
-        {
-            "id": "HCC85",
-            "name": "Congestive Heart Failure",
-            "description": "Heart failure, including systolic, diastolic, and combined types",
-            "avg_risk_score": 0.323,
-            "code_count": 8,
-        },
-        {
-            "id": "HCC111",
-            "name": "COPD",
-            "description": "Chronic obstructive pulmonary disease and related conditions",
-            "avg_risk_score": 0.351,
-            "code_count": 12,
-        },
-    ]
-
-    return sample_categories
+    categories = await hcc_service.list_hcc_categories()
+    return categories
 
 
 @router.get(
@@ -238,6 +164,7 @@ async def list_hcc_categories(
 async def get_hcc_statistics(
         db: AsyncSession = Depends(get_db),
         current_user: User = Depends(get_current_user),
+        hcc_service: HCCService = Depends(),
 ) -> Any:
     """
     Get statistics about HCC codes and their usage in the system.
@@ -245,6 +172,7 @@ async def get_hcc_statistics(
     Args:
         db: Database session
         current_user: Current authenticated user
+        hcc_service: HCC service
 
     Returns:
         HCC statistics
@@ -254,23 +182,109 @@ async def get_hcc_statistics(
         user_id=str(current_user.id),
     )
 
-    # TODO: Implement HCC statistics functionality
-    # This is a placeholder endpoint that should be implemented
-    # based on the processed documents and extracted conditions
+    statistics = await hcc_service.get_hcc_statistics()
+    return statistics
 
-    # For now, return mock data
-    return {
-        "total_hcc_codes": 8090,
-        "top_categories": [
-            {"category": "Diabetes", "count": 156, "percentage": 22.5},
-            {"category": "COPD", "count": 124, "percentage": 17.9},
-            {"category": "Congestive Heart Failure", "count": 98, "percentage": 14.1},
-        ],
-        "monthly_trend": [
-            {"month": "2025-01", "count": 234},
-            {"month": "2025-02", "count": 256},
-            {"month": "2025-03", "count": 312},
-        ],
-        "avg_hcc_codes_per_document": 3.2,
-        "compliance_rate": 0.87,
-    }
+
+@router.post(
+    "/check",
+    response_model=HCCRelevanceResult,
+    summary="Check HCC relevance",
+    description="Check if a diagnosis code or text is HCC-relevant."
+)
+async def check_hcc_relevance(
+        request: HCCCodeRequest,
+        db: AsyncSession = Depends(get_db),
+        current_user: Optional[User] = Depends(get_current_user_optional),
+        hcc_service: HCCService = Depends(),
+) -> Any:
+    """
+    Check if a diagnosis code or text is HCC-relevant.
+
+    Args:
+        request: Diagnosis code or text to check
+        db: Database session
+        current_user: Current user (optional)
+        hcc_service: HCC service
+
+    Returns:
+        HCC relevance check result
+    """
+    logger.info(
+        "HCC relevance check requested",
+        diagnosis_code=request.diagnosis_code,
+        diagnosis_text=request.diagnosis_text,
+        user_id=current_user.id if current_user else None,
+    )
+
+    # If code is provided, check directly
+    if request.diagnosis_code:
+        hcc_code = await hcc_service.get_hcc_code(request.diagnosis_code)
+
+        if hcc_code:
+            return {
+                "is_relevant": True,
+                "code": hcc_code["code"],
+                "category": hcc_code["category"],
+                "confidence": 1.0,
+                "alternatives": [],
+                "explanation": f"The code {request.diagnosis_code} is directly identified as HCC-relevant."
+            }
+        else:
+            # Code not found in HCC list
+            # This would normally integrate with the Vertex AI service to check for relevance
+            # For now, we'll provide a simple fallback
+            return {
+                "is_relevant": False,
+                "code": request.diagnosis_code,
+                "category": None,
+                "confidence": 0.9,
+                "alternatives": [],
+                "explanation": f"The code {request.diagnosis_code} is not found in the HCC-relevant codes list."
+            }
+
+    # If only text is provided
+    elif request.diagnosis_text:
+        # This would normally use the LLM to get the most likely ICD-10 code
+        # For now, we'll implement a simple search in the descriptions
+        df = await hcc_service._ensure_hcc_codes_loaded()
+
+        # Try to find matches in description
+        search_term = request.diagnosis_text.lower()
+        matched_rows = df[df["Description"].str.contains(search_term, case=False, na=False)]
+
+        if len(matched_rows) > 0:
+            # Get the first match
+            best_match = matched_rows.iloc[0]
+            code = best_match["ICD-10-CM Codes"]
+
+            # Get alternatives (up to 3)
+            alternatives = []
+            if len(matched_rows) > 1:
+                for _, row in matched_rows.iloc[1:4].iterrows():
+                    alternatives.append(row["ICD-10-CM Codes"])
+
+            return {
+                "is_relevant": True,
+                "code": code,
+                "category": best_match.get("Tags"),
+                "confidence": 0.85,  # Lower confidence because we're matching on text
+                "alternatives": alternatives,
+                "explanation": f"The diagnosis '{request.diagnosis_text}' matches HCC-relevant code {code}."
+            }
+        else:
+            return {
+                "is_relevant": False,
+                "code": None,
+                "category": None,
+                "confidence": 0.7,
+                "alternatives": [],
+                "explanation": f"No matching HCC-relevant codes found for '{request.diagnosis_text}'."
+            }
+
+    # If neither code nor text provided
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either diagnosis_code or diagnosis_text must be provided"
+        )
