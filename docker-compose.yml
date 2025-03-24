@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # Main service for HCC extraction
+  hcc-extractor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
+    ports:
+      - "8000:8000"
+    command: ["python", "-m", "hcc_extractor.main"]
+
+  # LangGraph development server
+  langgraph-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/app
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
+    ports:
+      - "8001:8001"
+    command: ["langgraph", "dev"]
+    depends_on:
+      - hcc-extractor
