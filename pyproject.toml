@@ -2,7 +2,7 @@
 name = "hcc-extractor"
 version = "0.1.0"
 description = "AI pipeline for extracting HCC-relevant conditions from clinical progress notes"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["黒い龍 <ponchogcja@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
