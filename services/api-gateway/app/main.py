@@ -13,7 +13,6 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from prometheus_client import Counter, Histogram
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -22,21 +21,11 @@ from app.db.session import create_database_pool, close_database_pool
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limiting import RateLimitingMiddleware
 from app.utils.logging import configure_logging
-from app.utils.metrics import setup_metrics_endpoint
+from app.utils.metrics import setup_metrics_endpoint, API_REQUESTS, API_REQUEST_TIME
 
 # Configure logging
 configure_logging(log_level=settings.LOG_LEVEL)
 logger = structlog.get_logger(__name__)
-
-# Define metrics
-REQUEST_COUNT = Counter(
-    "api_requests_total", "Total count of API requests", ["method", "endpoint", "status"]
-)
-REQUEST_LATENCY = Histogram(
-    "api_request_latency_seconds",
-    "Request latency in seconds",
-    ["method", "endpoint"],
-)
 
 
 @asynccontextmanager
@@ -124,10 +113,10 @@ async def add_metrics(request: Request, call_next):
 
     # Record metrics
     duration = time.time() - start_time
-    REQUEST_LATENCY.labels(
+    API_REQUEST_TIME.labels(
         method=request.method, endpoint=request.url.path
     ).observe(duration)
-    REQUEST_COUNT.labels(
+    API_REQUESTS.labels(
         method=request.method, endpoint=request.url.path, status=response.status_code
     ).inc()
 
