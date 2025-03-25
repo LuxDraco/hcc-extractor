@@ -28,7 +28,7 @@ RUN poetry install --no-interaction --no-ansi --without dev --no-root
 # Copy application code
 # First remove the placeholder directory
 RUN rm -rf app
-COPY app ./app/
+COPY . .
 
 # Set environment variables
 ENV PYTHONPATH=/app
@@ -37,5 +37,8 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 8000
 
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Set entry point
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["./entrypoint.sh"]
