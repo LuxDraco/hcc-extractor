@@ -5,11 +5,9 @@ This module provides business logic for HCC code operations,
 including listing, filtering, and retrieving HCC codes.
 """
 
-import csv
-import io
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import structlog
@@ -18,8 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.session import get_db
+from app.utils.logging import configure_logging
 from app.utils.metrics import HCC_OPERATIONS, HCC_OPERATION_TIME
 
+configure_logging(log_level=settings.LOG_LEVEL)
 logger = structlog.get_logger(__name__)
 
 

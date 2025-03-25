@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     ENVIRONMENT: Environment = Environment.DEVELOPMENT
     DEBUG: bool = False
-    LOG_LEVEL: LogLevel = LogLevel.INFO
+    LOG_LEVEL: LogLevel = LogLevel.DEBUG
     API_PREFIX: str = "/api/v1"
     SHOW_DOCS: bool = True
     PORT: int = 8000

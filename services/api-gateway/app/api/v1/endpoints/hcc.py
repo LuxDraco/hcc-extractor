@@ -288,3 +288,53 @@ async def check_hcc_relevance(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either diagnosis_code or diagnosis_text must be provided"
         )
+
+@router.get("/verify-file")
+async def verify_hcc_file():
+    """
+    Verify that the HCC codes file exists and is accessible.
+
+    Returns:
+        Status message and file information
+    """
+    from app.core.dependencies import get_hcc_codes_path
+    import os
+
+    try:
+        # Get HCC codes path
+        hcc_codes_path = get_hcc_codes_path()
+
+        # Check if file exists
+        file_exists = hcc_codes_path.exists()
+
+        # Get environment variables
+        env_path = os.environ.get("HCC_CODES_PATH", "Not set")
+        input_dir = os.environ.get("INPUT_DIR", "Not set")
+
+        # List files in data directory
+        data_dir = Path(input_dir) if os.path.isabs(input_dir) else Path(".") / input_dir
+        files = []
+        if data_dir.exists():
+            files = [f.name for f in data_dir.iterdir() if f.is_file()]
+
+        # Return status
+        return {
+            "file_exists": file_exists,
+            "file_path": str(hcc_codes_path),
+            "environment": {
+                "HCC_CODES_PATH": env_path,
+                "INPUT_DIR": input_dir
+            },
+            "data_directory": {
+                "path": str(data_dir),
+                "exists": data_dir.exists(),
+                "files": files
+            }
+        }
+
+    except Exception as e:
+        logger.exception(f"Error verifying HCC file: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error verifying HCC file: {str(e)}"
+        )

@@ -16,7 +16,7 @@ from structlog.types import Processor
 from app.core.config import LogLevel, Environment, settings
 
 
-def configure_logging(log_level: LogLevel = LogLevel.INFO) -> None:
+def configure_logging(log_level: LogLevel = LogLevel.DEBUG) -> None:
     """
     Configure structured logging for the application.
 

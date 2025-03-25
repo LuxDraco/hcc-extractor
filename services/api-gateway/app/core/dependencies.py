@@ -36,9 +36,6 @@ logger = structlog.get_logger(__name__)
 # Define HCC codes path
 _HCC_CODES_PATH: Optional[Path] = None
 
-# Telemetry
-tracer_provider = None
-
 
 def get_hcc_codes_path() -> Path:
     """
@@ -75,6 +72,8 @@ def get_hcc_codes_path() -> Path:
             logger.warning(
                 f"HCC codes file not found, will use {_HCC_CODES_PATH} if created"
             )
+
+        logger.info(f"HCC codes path: {_HCC_CODES_PATH}")
 
     return _HCC_CODES_PATH
 

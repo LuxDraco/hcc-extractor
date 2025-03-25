@@ -25,7 +25,7 @@ api_router.include_router(
     batch.router, prefix="/batch", tags=["batch processing"]
 )
 api_router.include_router(
-    hcc.router, prefix="/hcc", tags=["hcc codes"]
+    hcc.router, prefix="/hcc", tags=["hcc"]
 )
 api_router.include_router(
     webhooks.router, prefix="/webhooks", tags=["webhooks"]
