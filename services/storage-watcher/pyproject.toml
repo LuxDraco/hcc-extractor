@@ -3,7 +3,7 @@ name = "hcc-storage-watcher-service"
 version = "0.1.0"
 description = "Storage watcher service for monitoring file changes and publishing events"
 authors = ["黒い龍 <ponchogcja@gmail.com>"]
-packages = [{include = "app"}]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
