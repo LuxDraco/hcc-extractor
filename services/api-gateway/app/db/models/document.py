@@ -82,7 +82,7 @@ class Document(Base):
 
     # JSON fields for flexible metadata
     patient_info: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
-    doc_metadata: Mapped[Dict[str, Any]] = mapped_column(JSON, default={}, nullable=False)
+    doc_metadata: Mapped[Dict[str, Any]] = mapped_column(JSON, name="metadata", default={}, nullable=False)
 
     # Relationships
     user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -205,7 +205,7 @@ class Document(Base):
 
         if metadata:
             # Merge with existing metadata
-            self.metadata = {**self.metadata, **metadata}
+            self.doc_metadata = {**self.doc_metadata, **metadata}
 
         await db.commit()
         await db.refresh(self)
