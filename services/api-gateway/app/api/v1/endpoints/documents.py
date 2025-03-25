@@ -83,21 +83,21 @@ async def upload_document(
     )
 
     # Create document in database with transaction
-    async with db.begin():
-        document_in = DocumentCreate(
-            filename=file.filename,
-            file_size=len(content),
-            content_type=file.content_type,
-            storage_type=StorageType[storage_info["storage_type"].upper()].value.upper(),
-            storage_path=storage_info["storage_path"],
-            status=ProcessingStatus.PENDING,
-            is_processed=False,
-            processing_started_at=None,
-            processing_completed_at=None,
-            user_id=current_user.id if current_user else None,
-        )
+    #async with db.begin():
+    document_in = DocumentCreate(
+        filename=file.filename,
+        file_size=len(content),
+        content_type=file.content_type,
+        storage_type=StorageType[storage_info["storage_type"].upper()].value.upper(),
+        storage_path=storage_info["storage_path"],
+        status=ProcessingStatus.PENDING,
+        is_processed=False,
+        processing_started_at=None,
+        processing_completed_at=None,
+        user_id=current_user.id if current_user else None,
+    )
 
-        document = await document_service.create_document(db, document_in)
+    document = await document_service.create_document(db, document_in)
 
     # Publish message to processing queue - this must succeed
     try:
