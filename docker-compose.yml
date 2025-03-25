@@ -32,6 +32,8 @@ services:
       - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
+      - RABBITMQ_DEFAULT_USER=hccuser
+      - RABBITMQ_DEFAULT_PASS=hccpass
       - RABBITMQ_USER=hccuser
       - RABBITMQ_PASSWORD=hccpass
       - RABBITMQ_VHOST=/
@@ -121,15 +123,13 @@ services:
       - WATCH_PATH=/app/data
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
-      - RABBITMQ_USER=guest
-      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_USER=hccuser
+      - RABBITMQ_PASSWORD=hccpass
       - RABBITMQ_QUEUE=document-events
       - WATCH_INTERVAL=10.0
       - FILE_PATTERNS=*.txt,*.pdf
     depends_on:
       - rabbitmq
-
-  # LangGraph development server
 
   # Database
   postgres:
