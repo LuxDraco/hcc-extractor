@@ -180,6 +180,9 @@ class HCCService:
         # Apply pagination
         paginated_df = filtered_df.iloc[skip:skip + limit]
 
+        # Before converting to list of dictionaries, replace NaN values with None
+        paginated_df = paginated_df.replace({pd.NA: None, pd.NaT: None})
+
         # Convert to list of dictionaries
         result = []
         for _, row in paginated_df.iterrows():

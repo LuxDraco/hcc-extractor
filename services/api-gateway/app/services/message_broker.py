@@ -78,16 +78,23 @@ class MessageBrokerService:
             message_type: Type of message
             content_type: Content type of the message
             priority: Priority of the message (0-9)
-
-        Raises:
-            Exception: If the message cannot be published
         """
         start_time = time.time()
 
         try:
             # Initialize if needed
-            if not hasattr(self, "exchange"):
-                await self._initialize()
+            if not hasattr(self, "exchange") or self.exchange is None or not hasattr(self,
+                                                                                     "queue") or self.queue is None:
+                try:
+                    await self._initialize()
+                except Exception as e:
+                    logger.error(f"Failed to initialize RabbitMQ: {str(e)}")
+                    return  # Return early, don't try to publish
+
+            # If initialization failed or didn't properly set up the exchange or queue
+            if self.exchange is None or self.queue is None:
+                logger.error("Cannot publish message: RabbitMQ not properly initialized")
+                return  # Return early, don't try to publish
 
             # Add metadata
             message["message_id"] = str(uuid.uuid4())
@@ -139,7 +146,7 @@ class MessageBrokerService:
                 error=str(e),
                 duration=round(time.time() - start_time, 3),
             )
-            raise
+            # Don't raise the exception further
 
     async def publish_document_uploaded(
             self,

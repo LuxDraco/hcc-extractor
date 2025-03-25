@@ -51,6 +51,7 @@ class DocumentService:
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/msword",
+            "application/octet-stream",
         ]
 
         return content_type in valid_types
@@ -70,7 +71,10 @@ class DocumentService:
         """
         start_time = time.time()
 
-        document_data = document_in.model_dump()
+        document_data = document_in.model_dump(exclude={
+            'description',
+            'priority',
+        })
         document = await Document.create(db, document_data)
 
         # Record query time
