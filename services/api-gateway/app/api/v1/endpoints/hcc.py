@@ -292,11 +292,9 @@ async def check_hcc_relevance(
 @router.get("/verify-file")
 async def verify_hcc_file():
     """
-    Verify that the HCC codes file exists and is accessible.
-
-    Returns:
-        Status message and file information
+    Verify HCC file existence and configuration.
     """
+    from pathlib import Path
     from app.core.dependencies import get_hcc_codes_path
     import os
 
@@ -312,7 +310,8 @@ async def verify_hcc_file():
         input_dir = os.environ.get("INPUT_DIR", "Not set")
 
         # List files in data directory
-        data_dir = Path(input_dir) if os.path.isabs(input_dir) else Path(".") / input_dir
+        logger.info(f"Data directory: {input_dir}")
+        data_dir = Path(input_dir if os.path.isabs(input_dir) else os.path.join(".", input_dir))
         files = []
         if data_dir.exists():
             files = [f.name for f in data_dir.iterdir() if f.is_file()]

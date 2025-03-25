@@ -22,11 +22,14 @@ from app.schemas.document import (
     DocumentCreate, DocumentRead, DocumentUpdate, DocumentDetail,
     DocumentList, ProcessingStatusEnum
 )
+from app.utils.logging import configure_logging
+from app.core.config import settings
 from app.services.document import DocumentService
 from app.services.message_broker import MessageBrokerService
 from app.services.storage import StorageService
 from app.utils.metrics import record_document_processed
 
+configure_logging(log_level=settings.LOG_LEVEL)
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
@@ -49,25 +52,7 @@ async def upload_document(
         storage_service: StorageService = Depends(),
         message_broker: MessageBrokerService = Depends(),
 ) -> Any:
-    """
-    Upload a clinical document for processing.
-
-    Args:
-        file: Document file to upload
-        description: Optional description of the document
-        priority: Whether to prioritize processing this document
-        db: Database session
-        current_user: Current user (optional)
-        document_service: Document service
-        storage_service: Storage service
-        message_broker: Message broker service
-
-    Returns:
-        Created document information
-
-    Raises:
-        HTTPException: For various error conditions
-    """
+    """Upload a clinical document for processing."""
     logger.info(
         "Document upload requested",
         filename=file.filename,
@@ -87,32 +72,35 @@ async def upload_document(
             detail="Invalid document type. Supported types: text/plain, application/pdf",
         )
 
-    try:
-        # Read file content
-        content = await file.read()
+    # Read file content
+    content = await file.read()
 
-        # Store the document
-        storage_info = await storage_service.store_document(
-            content=content,
-            filename=file.filename,
-            content_type=file.content_type,
-        )
+    # Store the document
+    storage_info = await storage_service.store_document(
+        content=content,
+        filename=file.filename,
+        content_type=file.content_type,
+    )
 
-        # Create document in database
+    # Create document in database with transaction
+    async with db.begin():
         document_in = DocumentCreate(
             filename=file.filename,
             file_size=len(content),
             content_type=file.content_type,
-            storage_type=storage_info["storage_type"],
+            storage_type=StorageType[storage_info["storage_type"].upper()].value.upper(),
             storage_path=storage_info["storage_path"],
-            description=description,
-            priority=priority,
+            status=ProcessingStatus.PENDING,
+            is_processed=False,
+            processing_started_at=None,
+            processing_completed_at=None,
             user_id=current_user.id if current_user else None,
         )
 
         document = await document_service.create_document(db, document_in)
 
-        # Publish message to processing queue
+    # Publish message to processing queue - this must succeed
+    try:
         await message_broker.publish_document_uploaded(
             document_id=str(document.id),
             storage_path=document.storage_path,
@@ -120,29 +108,38 @@ async def upload_document(
             content_type=document.content_type,
             priority=priority,
         )
-
-        logger.info(
-            "Document uploaded successfully",
-            document_id=str(document.id),
-            storage_type=document.storage_type.value,
-            storage_path=document.storage_path,
-        )
-
-        # Record metrics
-        record_document_processed("uploaded")
-
-        return document
-
     except Exception as e:
-        logger.exception(
-            "Error uploading document",
-            filename=file.filename,
+        logger.error(
+            "Failed to publish document to processing queue",
+            document_id=str(document.id),
             error=str(e),
         )
+        # Delete the document from database since processing can't continue
+        if document:
+            await document_service.delete_document(db, document.id)
+
+        # Clean up the stored file
+        try:
+            await storage_service.delete_document(
+                storage_type=storage_info["storage_type"],
+                storage_path=storage_info["storage_path"],
+            )
+        except Exception as storage_e:
+            logger.warning(f"Failed to clean up storage after RabbitMQ failure: {str(storage_e)}")
+
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error uploading document",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Document processing system is currently unavailable. Please try again later.",
         )
+
+    logger.info(
+        "Document uploaded successfully",
+        document_id=str(document.id),
+        storage_type=document.storage_type.value,
+        storage_path=document.storage_path,
+    )
+
+    return document
 
 
 @router.get(
