@@ -83,7 +83,6 @@ async def upload_document(
     )
 
     # Create document in database with transaction
-    #async with db.begin():
     document_in = DocumentCreate(
         filename=file.filename,
         file_size=len(content),
