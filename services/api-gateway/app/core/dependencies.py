@@ -247,7 +247,7 @@ def read_hcc_codes():
     # Asegurarse de que la columna category tenga un valor por defecto
     df['category'] = df['category'].apply(lambda x: 'UNCATEGORIZED' if pd.isna(x) or x == '' else str(x))
 
-    # Convertir a diccionarios y asegurarse de que todo sea string
+    # Convertir a diccionarios y asegurarse de que sea string
     records = []
     for record in df.to_dict('records'):
         records.append({
