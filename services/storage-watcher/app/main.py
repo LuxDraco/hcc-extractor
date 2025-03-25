@@ -9,6 +9,7 @@ to RabbitMQ when new files are detected.
 import asyncio
 import logging
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Type, Union
@@ -73,6 +74,7 @@ class StorageWatcherService:
 
         # Select appropriate storage watcher based on type
         self.watcher = self._create_watcher()
+        self.running = False
 
         logger.info(
             f"Initialized storage watcher service with {self.storage_type} storage type, "
@@ -107,12 +109,13 @@ class StorageWatcherService:
     async def start(self) -> None:
         """Start the storage watcher service."""
         logger.info(f"Starting storage watcher service for {self.storage_type}")
+        self.running = True
 
         # Initialize message publisher
         await self.publisher.connect()
 
         try:
-            while True:
+            while self.running:
                 try:
                     # Check for new files
                     new_files = await self.watcher.check_for_changes()
@@ -149,6 +152,7 @@ class StorageWatcherService:
     async def stop(self) -> None:
         """Stop the storage watcher service."""
         logger.info("Stopping storage watcher service")
+        self.running = False
         await self.publisher.close()
 
 
@@ -182,8 +186,10 @@ async def run_service():
     loop = asyncio.get_event_loop()
     for signal_name in ("SIGINT", "SIGTERM"):
         try:
+            # Fix: Properly use getattr with the signal module and the signal name
             loop.add_signal_handler(
-                getattr(signal_name), lambda: asyncio.create_task(service.stop())
+                getattr(signal, signal_name),
+                lambda: asyncio.create_task(service.stop())
             )
         except (NotImplementedError, AttributeError):
             # Signal handling is not available on Windows
