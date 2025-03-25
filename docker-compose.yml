@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Message broker
   rabbitmq:
@@ -8,8 +6,9 @@ services:
       - "5672:5672"  # AMQP port
       - "15672:15672"  # Management UI
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_USER=hccuser
+      - RABBITMQ_DEFAULT_PASS=hccpass
+      - RABBITMQ_DEFAULT_VHOST=/
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -24,21 +23,33 @@ services:
       context: ./services/api-gateway
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data  # Mount the data directory
-      - ./output:/app/output  # Mount the output directory
+      - ./data:/app/data
+      - ./output:/app/output
       - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
       - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
       - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
       - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=hccuser
+      - RABBITMQ_PASSWORD=hccpass
+      - RABBITMQ_VHOST=/
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=hcc_extractor
       - INPUT_DIR=/app/data
       - OUTPUT_DIR=/app/output
       - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
     ports:
       - "8000:8000"
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   # Extractor Service
   extractor:
@@ -120,5 +131,23 @@ services:
 
   # LangGraph development server
 
+  # Database
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=hcc_extractor
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   rabbitmq_data:
+  postgres_data:
