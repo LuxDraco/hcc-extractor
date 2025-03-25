@@ -50,8 +50,8 @@ class Settings(BaseSettings):
     PROJECT_DESCRIPTION: str = "API Gateway for the HCC Extractor System"
     VERSION: str = "0.1.0"
     ENVIRONMENT: Environment = Environment.DEVELOPMENT
-    DEBUG: bool = False
-    LOG_LEVEL: LogLevel = LogLevel.DEBUG
+    DEBUG: bool = True
+    LOG_LEVEL: LogLevel = LogLevel.INFO
     API_PREFIX: str = "/api/v1"
     SHOW_DOCS: bool = True
     PORT: int = 8000
