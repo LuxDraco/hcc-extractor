@@ -36,9 +36,9 @@ class ProcessingStatus(enum.Enum):
 
 class StorageType(enum.Enum):
     """Enum for document storage types."""
-    LOCAL = "local"
-    S3 = "s3"
-    GCS = "gcs"
+    LOCAL = "LOCAL"
+    S3 = "S3"
+    GCS = "GCS"
 
 
 class Document(Base):
