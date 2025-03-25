@@ -5,15 +5,10 @@ This module serves as the entry point for the API Gateway service, which provide
 a unified interface for accessing the various components of the HCC Extractor system.
 """
 
-import logging
 import time
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.dependencies import get_telemetry, initialize_telemetry
@@ -22,6 +17,9 @@ from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limiting import RateLimitingMiddleware
 from app.utils.logging import configure_logging
 from app.utils.metrics import setup_metrics_endpoint, API_REQUESTS, API_REQUEST_TIME
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 # Configure logging
 configure_logging(log_level=settings.LOG_LEVEL)
