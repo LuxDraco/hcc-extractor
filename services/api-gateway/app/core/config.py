@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     RABBITMQ_PORT: int = 5672
     RABBITMQ_USER: str = "guest"
     RABBITMQ_PASSWORD: SecretStr = Field(default=SecretStr("guest"))
+    RABBITMQ_VHOST: str = "/"
     RABBITMQ_QUEUE: str = "document-events"
     RABBITMQ_EXCHANGE: str = "hcc-extractor"
 
@@ -125,7 +126,7 @@ class Settings(BaseSettings):
             password=password,
             host=data.get("POSTGRES_HOST"),
             port=data.get("POSTGRES_PORT"),
-            path=f"/{data.get('POSTGRES_DB') or ''}",
+            path=f"{data.get('POSTGRES_DB') or ''}",
         )
 
     model_config = SettingsConfigDict(

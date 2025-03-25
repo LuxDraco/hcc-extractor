@@ -7,22 +7,22 @@ functions for accessing the HCC codes data.
 
 import os
 from pathlib import Path
+from typing import AsyncGenerator
 from typing import Optional
 
+import aio_pika
+import numpy as np
+import pandas as pd
 import structlog
+from aio_pika import Channel
 from app.core.config import settings
 from app.core.security import get_current_user
 from app.db.models.user import User
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-import aio_pika
-from aio_pika import Channel
-from typing import AsyncGenerator
-
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
 # RabbitMQ connection
@@ -153,30 +153,18 @@ async def get_rabbitmq_channel() -> AsyncGenerator[Channel, None]:
 
     # Create connection if not exists
     if _rabbitmq_connection is None or _rabbitmq_connection.is_closed:
-        try:
-            # Create connection string
-            connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/"
+        # Create connection string
+        # Create connection string
 
-            # Connect to RabbitMQ
-            _rabbitmq_connection = await aio_pika.connect_robust(connection_string)
+        vhost = settings.RABBITMQ_VHOST if settings.RABBITMQ_VHOST != "/" else "%2F"
+        connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/{vhost}"
 
-            logger.info(f"Connected to RabbitMQ at {settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}")
-        except Exception as e:
-            logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
+        logger.info(f"Connecting to RabbitMQ using {connection_string}")
 
-            # Return a mock channel when RabbitMQ is not available
-            # This allows the app to start even if RabbitMQ is not available
-            class MockChannel:
-                async def declare_exchange(self, *args, **kwargs): return None
+        # Connect to RabbitMQ
+        _rabbitmq_connection = await aio_pika.connect_robust(connection_string)
 
-                async def declare_queue(self, *args, **kwargs): return None
-
-                async def publish(self, *args, **kwargs): return None
-
-                async def close(self): return None
-
-            yield MockChannel()
-            return
+        logger.info(f"Connected to RabbitMQ at {settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}")
 
     # Create channel if not exists
     if _rabbitmq_channel is None or _rabbitmq_channel.is_closed:
@@ -234,3 +222,38 @@ def get_telemetry():
         The tracer provider
     """
     return tracer_provider
+
+
+def read_hcc_codes():
+    csv_path = get_hcc_codes_path()
+
+    # Leer el CSV con tipos explícitos
+    df = pd.read_csv(csv_path, dtype={
+        'ICD-10-CM Codes': str,
+        'Description': str,
+        'Tags': str
+    })
+
+    # Renombrar las columnas
+    df = df.rename(columns={
+        'ICD-10-CM Codes': 'code',
+        'Description': 'description',
+        'Tags': 'category'
+    })
+
+    # Reemplazar NaN y None con string vacío
+    df = df.replace({np.nan: '', None: ''})
+
+    # Asegurarse de que la columna category tenga un valor por defecto
+    df['category'] = df['category'].apply(lambda x: 'UNCATEGORIZED' if pd.isna(x) or x == '' else str(x))
+
+    # Convertir a diccionarios y asegurarse de que todo sea string
+    records = []
+    for record in df.to_dict('records'):
+        records.append({
+            'code': str(record['code']).strip(),
+            'description': str(record['description']).strip(),
+            'category': str(record['category']).strip() or 'UNCATEGORIZED'
+        })
+
+    return records
