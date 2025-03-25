@@ -156,8 +156,10 @@ async def get_rabbitmq_channel() -> AsyncGenerator[Channel, None]:
         # Create connection string
         # Create connection string
 
-        vhost = settings.RABBITMQ_VHOST if settings.RABBITMQ_VHOST != "/" else "%2F"
-        connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/{vhost}"
+        # vhost = settings.RABBITMQ_VHOST if settings.RABBITMQ_VHOST != "/" else "%2F"
+        # connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/{vhost}"
+        #connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/"
+        connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
 
         logger.info(f"Connecting to RabbitMQ using {connection_string}")
 
