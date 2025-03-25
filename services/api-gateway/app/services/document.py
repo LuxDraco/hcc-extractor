@@ -71,11 +71,18 @@ class DocumentService:
         """
         start_time = time.time()
 
-        document_data = document_in.model_dump(exclude={
-            'description',
-            'priority',
-        })
-        document = await Document.create(db, document_data)
+        #document_data = document_in.model_dump(exclude={
+        #    'description',
+        #    'priority',
+        #})
+        # document = await Document.create(db, document_data)
+        document_data = Document(
+            **document_in.model_dump(exclude_unset=True),
+        )
+        db.add(document_data)
+        await db.commit()
+        await db.refresh(document_data)
+        document = document_data
 
         # Record query time
         query_time = time.time() - start_time
