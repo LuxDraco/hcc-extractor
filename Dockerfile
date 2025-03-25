@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN pip install poetry && \
 COPY pyproject.toml poetry.lock* ./
 
 # Install dependencies
-RUN poetry install --no-interaction --no-ansi
+RUN poetry install --no-interaction --no-ansi --no-root
 
 # Copy application code
 COPY . .
