@@ -18,53 +18,14 @@ services:
       timeout: 5s
       retries: 5
 
-  # Traefik reverse proxy
-  traefik:
-    image: traefik:v2.10
-    ports:
-      - "80:80"   # HTTP
-      - "443:443"  # HTTPS
-      - "8080:8080"  # Dashboard
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
-      - ./traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml
-      - ./traefik/acme.json:/etc/traefik/acme.json
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.hcc-extractor.local`)"
-      - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.middlewares=admin-auth"
-      - "traefik.http.middlewares.admin-auth.basicauth.users=admin:$$apr1$$xyq46b3j$$eZrWmU9MFrnZVdAKiP0T91"  # admin:password
-
   # API Gateway
   api-gateway:
     build:
       context: ./services/api-gateway
       dockerfile: Dockerfile
     volumes:
-      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
-    environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
-      - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
-      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
-      - RABBITMQ_HOST=rabbitmq
-    ports:
-      - "8000:8000"
-    depends_on:
-      - rabbitmq
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.api-gateway.rule=Host(`hcc-extractor.local`)"
-
-  # Extractor Service
-  extractor:
-    build:
-      context: ./services/extractor
-      dockerfile: Dockerfile
-    volumes:
-      - ./data:/app/data
-      - ./output:/app/output
+      - ./data:/app/data  # Mount the data directory
+      - ./output:/app/output  # Mount the output directory
       - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
@@ -73,6 +34,29 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - INPUT_DIR=/app/data
       - OUTPUT_DIR=/app/output
+      - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
+    ports:
+      - "8000:8000"
+    depends_on:
+      - rabbitmq
+
+  # Extractor Service
+  extractor:
+    build:
+      context: ./services/extractor
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/app/data  # Mount the data directory
+      - ./output:/app/output  # Mount the output directory
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
+      - RABBITMQ_HOST=rabbitmq
+      - INPUT_DIR=/app/data
+      - OUTPUT_DIR=/app/output
+      - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
     depends_on:
       - rabbitmq
 
@@ -82,8 +66,8 @@ services:
       context: ./services/analyzer
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data
-      - ./output:/app/output
+      - ./data:/app/data  # Mount the data directory
+      - ./output:/app/output  # Mount the output directory
       - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
@@ -103,8 +87,8 @@ services:
       context: ./services/validator
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data
-      - ./output:/app/output
+      - ./data:/app/data  # Mount the data directory
+      - ./output:/app/output  # Mount the output directory
     environment:
       - INPUT_DIR=/app/data
       - OUTPUT_DIR=/app/output
@@ -118,7 +102,7 @@ services:
       context: ./services/storage-watcher
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data  # Mount the data directory
       - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
@@ -135,23 +119,6 @@ services:
       - rabbitmq
 
   # LangGraph development server
-  langgraph-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.langgraph
-    volumes:
-      - ./:/app
-      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
-    environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
-      - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
-      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
-    ports:
-      - "8001:8001"
-    command: [ "langgraph", "dev" ]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.langgraph.rule=Host(`langgraph.hcc-extractor.local`)"
 
 volumes:
   rabbitmq_data:
