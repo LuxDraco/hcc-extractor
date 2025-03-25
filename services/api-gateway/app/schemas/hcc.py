@@ -13,7 +13,7 @@ class HCCCodeBase(BaseModel):
     """Base schema for HCC code operations."""
     code: str = Field(..., description="ICD-10 diagnosis code")
     description: str = Field(..., description="Description of the diagnosis code")
-    category: str = Field(..., description="HCC category of the code")
+    category: Optional[str] = Field(..., description="HCC category of the code")
     risk_score: float = Field(..., description="Risk adjustment score for the code")
 
 

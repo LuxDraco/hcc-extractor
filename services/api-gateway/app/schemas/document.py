@@ -14,9 +14,9 @@ from pydantic import BaseModel, Field, HttpUrl
 
 class StorageTypeEnum(str, enum.Enum):
     """Enum for document storage types."""
-    LOCAL = "local"
-    S3 = "s3"
-    GCS = "gcs"
+    LOCAL = "LOCAL"
+    S3 = "S3"
+    GCS = "GCS"
 
 
 class ProcessingStatusEnum(str, enum.Enum):
@@ -43,6 +43,7 @@ class DocumentCreate(DocumentBase):
     storage_path: str = Field(..., description="Path to the document in storage")
     priority: bool = Field(False, description="Whether to prioritize processing the document")
     user_id: Optional[uuid.UUID] = Field(None, description="ID of the user who uploaded the document")
+    description: Optional[str] = Field(None, description="Optional description of the document")
 
 
 class DocumentUpdate(BaseModel):
