@@ -6,7 +6,7 @@ authorization, and security operations.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -14,10 +14,9 @@ from jose import JWTError, jwt
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.db.session import get_db
-from app.schemas.token import TokenPayload
-from app.utils.password import verify_password  # Import from utils instead
+from gateway.core.config import settings
+from gateway.db.session import get_db
+from gateway.schemas.token import TokenPayload
 
 # OAuth2 scheme for token-based authentication
 oauth2_scheme = OAuth2PasswordBearer(
@@ -70,7 +69,7 @@ async def get_current_user(
         HTTPException: If authentication fails
     """
     # Import User inside function to avoid circular import
-    from app.db.models.user import User
+    from gateway.db.models.user import User
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

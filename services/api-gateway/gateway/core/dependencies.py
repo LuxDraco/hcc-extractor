@@ -15,15 +15,16 @@ import numpy as np
 import pandas as pd
 import structlog
 from aio_pika import Channel
-from app.core.config import settings
-from app.core.security import get_current_user
-from app.db.models.user import User
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
+from gateway.core.config import settings
+from gateway.core.security import get_current_user
+from gateway.db.models.user import User
 
 # RabbitMQ connection
 _rabbitmq_connection = None
@@ -158,7 +159,7 @@ async def get_rabbitmq_channel() -> AsyncGenerator[Channel, None]:
 
         # vhost = settings.RABBITMQ_VHOST if settings.RABBITMQ_VHOST != "/" else "%2F"
         # connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/{vhost}"
-        #connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/"
+        # connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/"
         connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
 
         logger.info(f"Connecting to RabbitMQ using {connection_string}")
