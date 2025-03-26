@@ -14,9 +14,9 @@ import structlog
 from aio_pika import Message, DeliveryMode
 from fastapi import Depends
 
-from app.core.config import settings
-from app.core.dependencies import get_rabbitmq_channel
-from app.utils.metrics import (
+from gateway.core.config import settings
+from gateway.core.dependencies import get_rabbitmq_channel
+from gateway.utils.metrics import (
     RABBITMQ_MESSAGES_PUBLISHED,
     RABBITMQ_MESSAGES_FAILED,
 )

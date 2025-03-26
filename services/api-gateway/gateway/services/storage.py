@@ -8,17 +8,15 @@ from various storage backends (local, S3, GCS).
 import os
 import time
 import uuid
-from pathlib import Path
-from typing import Dict, Optional, Tuple, Union, Any
+from typing import Dict, Tuple
 
 import aiofiles
 import boto3
 import structlog
-from fastapi import Depends
 from google.cloud import storage
 
-from app.core.config import settings
-from app.utils.metrics import STORAGE_OPERATIONS, STORAGE_OPERATION_TIME
+from gateway.core.config import settings
+from gateway.utils.metrics import STORAGE_OPERATIONS, STORAGE_OPERATION_TIME
 
 logger = structlog.get_logger(__name__)
 

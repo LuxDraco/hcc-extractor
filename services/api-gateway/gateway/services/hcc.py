@@ -14,10 +14,10 @@ import structlog
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.db.session import get_db
-from app.utils.logging import configure_logging
-from app.utils.metrics import HCC_OPERATIONS, HCC_OPERATION_TIME
+from gateway.core.config import settings
+from gateway.db.session import get_db
+from gateway.utils.logging import configure_logging
+from gateway.utils.metrics import HCC_OPERATIONS, HCC_OPERATION_TIME
 
 configure_logging(log_level=settings.LOG_LEVEL)
 logger = structlog.get_logger(__name__)
@@ -59,7 +59,7 @@ class HCCService:
 
             # Load HCC codes from CSV
             try:
-                from app.core.dependencies import get_hcc_codes_path
+                from gateway.core.dependencies import get_hcc_codes_path
                 hcc_codes_path = get_hcc_codes_path()
 
                 # Read CSV with pandas

@@ -4,21 +4,19 @@ Document service for the API Gateway.
 This module provides business logic for document operations.
 """
 
-import re
 import time
 import uuid
-from typing import Dict, List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any
 
 import structlog
 from fastapi import Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import Select
 
-from app.db.models.document import Document, ProcessingStatus
-from app.db.session import get_db
-from app.schemas.document import DocumentCreate, DocumentUpdate
-from app.utils.metrics import DB_QUERY_TIME
+from gateway.db.models.document import Document, ProcessingStatus
+from gateway.db.session import get_db
+from gateway.schemas.document import DocumentCreate, DocumentUpdate
+from gateway.utils.metrics import DB_QUERY_TIME
 
 logger = structlog.get_logger(__name__)
 
@@ -71,10 +69,10 @@ class DocumentService:
         """
         start_time = time.time()
 
-        #document_data = document_in.model_dump(exclude={
+        # document_data = document_in.model_dump(exclude={
         #    'description',
         #    'priority',
-        #})
+        # })
         # document = await Document.create(db, document_data)
         document_data = Document(
             **document_in.model_dump(exclude_unset=True),
