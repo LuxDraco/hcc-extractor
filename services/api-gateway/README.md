@@ -103,13 +103,13 @@ python -m scripts.create_admin_user
 Start the service in development mode:
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uvicorn gateway.main:gateway --reload --port 8000
 ```
 
 Or using Poetry:
 
 ```bash
-poetry run uvicorn app.main:app --reload --port 8000
+poetry run uvicorn gateway.main:gateway --reload --port 8000
 ```
 
 ### Using Docker
@@ -237,17 +237,17 @@ services/api-gateway/
 pytest
 
 # Run with coverage
-pytest --cov=app
+pytest --cov=gateway
 ```
 
 ### Code Formatting
 
 ```bash
 # Format code with Black
-black app tests
+black gateway tests
 
 # Check imports with isort
-isort app tests
+isort gateway tests
 ```
 
 ## Troubleshooting
