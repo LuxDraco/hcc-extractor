@@ -5,7 +5,7 @@ This module defines endpoints for document operations.
 """
 
 import uuid
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import structlog
 from fastapi import (
@@ -14,20 +14,20 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_current_user_optional
-from app.db.models.document import Document, ProcessingStatus, StorageType
-from app.db.models.user import User
-from app.db.session import get_db
-from app.schemas.document import (
-    DocumentCreate, DocumentRead, DocumentUpdate, DocumentDetail,
+from gateway.core.config import settings
+from gateway.core.dependencies import get_current_user, get_current_user_optional
+from gateway.db.models.document import ProcessingStatus, StorageType
+from gateway.db.models.user import User
+from gateway.db.session import get_db
+from gateway.schemas.document import (
+    DocumentCreate, DocumentRead, DocumentDetail,
     DocumentList, ProcessingStatusEnum
 )
-from app.utils.logging import configure_logging
-from app.core.config import settings
-from app.services.document import DocumentService
-from app.services.message_broker import MessageBrokerService
-from app.services.storage import StorageService
-from app.utils.metrics import record_document_processed
+from gateway.services.document import DocumentService
+from gateway.services.message_broker import MessageBrokerService
+from gateway.services.storage import StorageService
+from gateway.utils.logging import configure_logging
+from gateway.utils.metrics import record_document_processed
 
 configure_logging(log_level=settings.LOG_LEVEL)
 logger = structlog.get_logger(__name__)
@@ -94,6 +94,8 @@ async def upload_document(
         processing_started_at=None,
         processing_completed_at=None,
         user_id=current_user.id if current_user else None,
+        description=description,
+        priority=priority,
     )
 
     document = await document_service.create_document(db, document_in)

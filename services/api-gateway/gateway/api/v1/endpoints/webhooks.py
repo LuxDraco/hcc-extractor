@@ -5,19 +5,19 @@ This module defines endpoints for managing webhooks.
 """
 
 import uuid
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user
-from app.db.models.user import User
-from app.db.models.webhook import Webhook, WebhookStatus, WebhookEventType
-from app.db.session import get_db
-from app.schemas.webhook import (
+from gateway.core.dependencies import get_current_user
+from gateway.db.models.user import User
+from gateway.db.models.webhook import Webhook, WebhookStatus
+from gateway.db.session import get_db
+from gateway.schemas.webhook import (
     WebhookCreate, WebhookRead, WebhookUpdate, WebhookDetail, WebhookList,
-    WebhookEventTypeEnum, WebhookStatusEnum,
+    WebhookStatusEnum,
 )
 
 logger = structlog.get_logger(__name__)

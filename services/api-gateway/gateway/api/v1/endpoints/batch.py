@@ -5,23 +5,22 @@ This module defines endpoints for batch document processing operations.
 """
 
 import uuid
-from typing import Any, List, Optional
+from typing import Any, List
 
 import structlog
+from gateway.core.dependencies import get_current_user, require_admin_role
+from gateway.db.models.document import Document, ProcessingStatus
+from gateway.db.models.user import User
+from gateway.db.session import get_db
+from gateway.schemas.document import DocumentRead, DocumentList
+from gateway.services.document import DocumentService
+from gateway.services.message_broker import MessageBrokerService
+from gateway.services.storage import StorageService
 from fastapi import (
     APIRouter, BackgroundTasks, Depends, File, Form, HTTPException,
-    Path, Query, UploadFile, status
+    UploadFile, status
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.dependencies import get_current_user, require_admin_role
-from app.db.models.document import Document, ProcessingStatus
-from app.db.models.user import User
-from app.db.session import get_db
-from app.schemas.document import DocumentRead, DocumentList
-from app.services.document import DocumentService
-from app.services.message_broker import MessageBrokerService
-from app.services.storage import StorageService
 
 logger = structlog.get_logger(__name__)
 

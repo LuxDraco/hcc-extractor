@@ -12,12 +12,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.core.security import create_access_token
-from app.db.models.user import User
-from app.db.session import get_db
-from app.schemas.token import Token
-from app.schemas.user import UserCreate, UserRead
+from gateway.core.config import settings
+from gateway.core.security import create_access_token
+from gateway.db.models.user import User
+from gateway.db.session import get_db
+from gateway.schemas.token import Token
+from gateway.schemas.user import UserCreate, UserRead
 
 logger = structlog.get_logger(__name__)
 

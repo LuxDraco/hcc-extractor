@@ -10,12 +10,11 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_current_user_optional
-from app.db.models.user import User
-from app.db.session import get_db
-from app.schemas.hcc import HCCCodeRead, HCCCodeList, HCCCategory, HCCRelevanceResult, HCCCodeRequest
-
-from app.services.hcc import HCCService
+from gateway.core.dependencies import get_current_user, get_current_user_optional
+from gateway.db.models.user import User
+from gateway.db.session import get_db
+from gateway.schemas.hcc import HCCCodeRead, HCCCodeList, HCCCategory, HCCRelevanceResult, HCCCodeRequest
+from gateway.services.hcc import HCCService
 
 logger = structlog.get_logger(__name__)
 
@@ -289,13 +288,14 @@ async def check_hcc_relevance(
             detail="Either diagnosis_code or diagnosis_text must be provided"
         )
 
+
 @router.get("/verify-file")
 async def verify_hcc_file():
     """
     Verify HCC file existence and configuration.
     """
     from pathlib import Path
-    from app.core.dependencies import get_hcc_codes_path
+    from gateway.core.dependencies import get_hcc_codes_path
     import os
 
     try:

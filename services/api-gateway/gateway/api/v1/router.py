@@ -7,7 +7,7 @@ This module defines the main router for API v1 endpoints.
 import structlog
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, documents, batch, hcc, webhooks
+from gateway.api.v1.endpoints import auth, documents, batch, hcc, webhooks
 
 logger = structlog.get_logger(__name__)
 
