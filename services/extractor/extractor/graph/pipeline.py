@@ -8,7 +8,7 @@ rule-based and LLM-based extraction methods.
 
 from langgraph.graph import StateGraph, END
 
-from app.graph.nodes import (
+from extractor.graph.nodes import (
     GraphState,
     preprocess,
     extract_rule_based,
@@ -16,7 +16,7 @@ from app.graph.nodes import (
     merge_results,
     create_result,
 )
-from app.models.document import ClinicalDocument, ExtractionResult
+from extractor.models.document import ClinicalDocument, ExtractionResult
 
 
 class ExtractionPipeline:
