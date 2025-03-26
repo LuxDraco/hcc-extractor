@@ -17,17 +17,36 @@ services:
       timeout: 5s
       retries: 5
 
+  # Traefik reverse proxy
+  traefik:
+    image: traefik:v2.11.0
+    ports:
+      - "80:80"   # HTTP
+      - "443:443"  # HTTPS
+      - "8080:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml
+      - ./traefik/acme.json:/etc/traefik/acme.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.hcc-extractor.local`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=admin-auth"
+      - "traefik.http.middlewares.admin-auth.basicauth.users=admin:$$apr1$$xyq46b3j$$eZrWmU9MFrnZVdAKiP0T91"  # admin:password
+
   # API Gateway
   api-gateway:
     build:
       context: ./services/api-gateway
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data
-      - ./output:/app/output
-      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
+      - ./data:/gateway/data
+      - ./output:/gateway/output
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/gateway/credentials.json:ro
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/gateway/credentials.json
       - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
       - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
       - RABBITMQ_HOST=rabbitmq
@@ -42,9 +61,9 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=hcc_extractor
-      - INPUT_DIR=/app/data
-      - OUTPUT_DIR=/app/output
-      - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
+      - INPUT_DIR=/gateway/data
+      - OUTPUT_DIR=/gateway/output
+      - HCC_CODES_PATH=/gateway/data/HCC_relevant_codes.csv
     ports:
       - "8000:8000"
     depends_on:
@@ -59,17 +78,18 @@ services:
       context: ./services/extractor
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data  # Mount the data directory
-      - ./output:/app/output  # Mount the output directory
-      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
+      - ./data:/gateway/data  # Mount the data directory
+      - ./output:/gateway/output  # Mount the output directory
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/gateway/credentials.json:ro
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/gateway/credentials.json
       - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
       - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
       - RABBITMQ_HOST=rabbitmq
-      - INPUT_DIR=/app/data
-      - OUTPUT_DIR=/app/output
-      - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
+      - INPUT_DIR=/gateway/data
+      - OUTPUT_DIR=/gateway/output
+      - HCC_CODES_PATH=/gateway/data/HCC_relevant_codes.csv
+      - USE_LANGGRAPH=1
     depends_on:
       - rabbitmq
 
@@ -79,17 +99,17 @@ services:
       context: ./services/analyzer
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data  # Mount the data directory
-      - ./output:/app/output  # Mount the output directory
-      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
+      - ./data:/gateway/data  # Mount the data directory
+      - ./output:/gateway/output  # Mount the output directory
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/gateway/credentials.json:ro
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/gateway/credentials.json
       - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
       - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
       - RABBITMQ_HOST=rabbitmq
-      - INPUT_DIR=/app/data
-      - OUTPUT_DIR=/app/output
-      - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
+      - INPUT_DIR=/gateway/data
+      - OUTPUT_DIR=/gateway/output
+      - HCC_CODES_PATH=/gateway/data/HCC_relevant_codes.csv
     depends_on:
       - rabbitmq
       - extractor
@@ -100,12 +120,12 @@ services:
       context: ./services/validator
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data  # Mount the data directory
-      - ./output:/app/output  # Mount the output directory
+      - ./data:/gateway/data  # Mount the data directory
+      - ./output:/gateway/output  # Mount the output directory
     environment:
-      - INPUT_DIR=/app/data
-      - OUTPUT_DIR=/app/output
-      - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
+      - INPUT_DIR=/gateway/data
+      - OUTPUT_DIR=/gateway/output
+      - HCC_CODES_PATH=/gateway/data/HCC_relevant_codes.csv
     depends_on:
       - analyzer
 
@@ -115,16 +135,19 @@ services:
       context: ./services/storage-watcher
       dockerfile: Dockerfile
     volumes:
-      - ./data:/app/data  # Mount the data directory
-      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials.json:ro
+      - ./data:/gateway/data  # Mount the data directory
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/gateway/credentials.json:ro
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/gateway/credentials.json
       - STORAGE_TYPE=local
-      - WATCH_PATH=/app/data
+      - WATCH_PATH=/gateway/data
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
+      - RABBITMQ_DEFAULT_USER=hccuser
+      - RABBITMQ_DEFAULT_PASS=hccpass
       - RABBITMQ_USER=hccuser
       - RABBITMQ_PASSWORD=hccpass
+      - RABBITMQ_VHOST=/
       - RABBITMQ_QUEUE=document-events
       - WATCH_INTERVAL=10.0
       - FILE_PATTERNS=*.txt,*.pdf
