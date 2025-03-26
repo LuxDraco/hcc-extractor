@@ -4,9 +4,9 @@ Nodes for the LangGraph extraction workflow.
 
 from typing import List, TypedDict, Optional
 
-from app.extraction.utils import extract_assessment_plan, extract_conditions_rule_based
-from app.llm.client import GeminiClient
-from app.models.document import ClinicalDocument, Condition, ExtractionResult
+from extractor.extraction.utils import extract_assessment_plan, extract_conditions_rule_based
+from extractor.llm.client import GeminiClient
+from extractor.models.document import ClinicalDocument, Condition, ExtractionResult
 
 
 class GraphState(TypedDict):
