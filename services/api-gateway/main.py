@@ -9,17 +9,18 @@ import time
 from contextlib import asynccontextmanager
 
 import structlog
-from app.api.v1.router import api_router
-from app.core.config import settings
-from app.core.dependencies import get_telemetry, initialize_telemetry
-from app.db.session import create_database_pool, close_database_pool
-from app.middleware.logging import LoggingMiddleware
-from app.middleware.rate_limiting import RateLimitingMiddleware
-from app.utils.logging import configure_logging
-from app.utils.metrics import setup_metrics_endpoint, API_REQUESTS, API_REQUEST_TIME
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+from gateway.api.v1.router import api_router
+from gateway.core.config import settings
+from gateway.core.dependencies import initialize_telemetry
+from gateway.db.session import create_database_pool, close_database_pool
+from gateway.middleware.logging import LoggingMiddleware
+from gateway.middleware.rate_limiting import RateLimitingMiddleware
+from gateway.utils.logging import configure_logging
+from gateway.utils.metrics import setup_metrics_endpoint, API_REQUESTS, API_REQUEST_TIME
 
 # Configure logging
 configure_logging(log_level=settings.LOG_LEVEL)
@@ -147,11 +148,16 @@ async def root():
     }
 
 
-if __name__ == "__main__":
+def main():
+    """
+    Main entry point for the API Gateway service.
+
+    This function starts the FastAPI application server.
+    """
     import uvicorn
 
     uvicorn.run(
-        "app.main:app",
+        "main:app",
         host="0.0.0.0",
         port=settings.PORT,
         reload=settings.DEBUG,

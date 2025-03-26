@@ -17,18 +17,13 @@ RUN pip install poetry && \
     poetry config virtualenvs.create false
 
 # Copy Poetry configuration files
-COPY pyproject.toml poetry.lock* ./
-
-# Create empty app directory to satisfy poetry
-RUN mkdir -p app
-
-# Install dependencies (without dev dependencies)
-RUN poetry install --no-interaction --no-ansi --without dev --no-root
+COPY pyproject.toml ./
 
 # Copy application code
-# First remove the placeholder directory
-RUN rm -rf app
-COPY . .
+COPY . ./
+
+# Install dependencies (without dev dependencies)
+RUN poetry install --no-interaction --no-ansi
 
 # Set environment variables
 ENV PYTHONPATH=/app
@@ -37,8 +32,21 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 8000
 
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Crear un nuevo script de entrada - REEMPLAZAR EL EXISTENTE
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Run migrations\n\
+echo "Running database migrations..."\n\
+cd /app\n\
+alembic upgrade head\n\
+\n\
+# Start the application\n\
+echo "Starting API Gateway..."\n\
+exec uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers' > /app/start.sh
 
-# Set entry point
-CMD ["./entrypoint.sh"]
+# Dar permisos de ejecución
+RUN chmod +x /app/start.sh
+
+# Comando para ejecutar
+CMD ["/bin/bash", "/app/start.sh"]
