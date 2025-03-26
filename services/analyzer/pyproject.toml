@@ -3,7 +3,8 @@ name = "hcc-analyzer-service"
 version = "0.1.0"
 description = "Analysis service for determining HCC relevance of medical conditions"
 authors = ["黒い龍 <ponchogcja@gmail.com>"]
-packages = [{include = "app"}]
+#packages = [{include = "gateway"}]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
