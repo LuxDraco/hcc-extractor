@@ -3,7 +3,12 @@ name = "hcc-storage-watcher-service"
 version = "0.1.0"
 description = "Storage watcher service for monitoring file changes and publishing events"
 authors = ["黒い龍 <ponchogcja@gmail.com>"]
-package-mode = false
+packages = [
+    { include = "app" },
+]
+
+[tool.poetry.scripts]
+dev = "main:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -25,8 +30,8 @@ flake8 = "^6.1.0"
 mypy = "^1.7.1"
 
 [build-system]
-requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
 
 [tool.black]
 line-length = 88
