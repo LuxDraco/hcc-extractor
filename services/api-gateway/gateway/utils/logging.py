@@ -7,13 +7,13 @@ This module provides utilities for configuring logging with structlog.
 import logging
 import sys
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import structlog
 from structlog.stdlib import LoggerFactory
 from structlog.types import Processor
 
-from app.core.config import LogLevel, Environment, settings
+from gateway.core.config import LogLevel, Environment, settings
 
 
 def configure_logging(log_level: LogLevel = LogLevel.DEBUG) -> None:

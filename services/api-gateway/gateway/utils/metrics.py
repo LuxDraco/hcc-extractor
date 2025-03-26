@@ -8,7 +8,7 @@ with safeguards to prevent duplicate metric registration.
 import structlog
 from fastapi import FastAPI
 from prometheus_client import (
-    Counter, Gauge, Histogram, Summary, REGISTRY, CONTENT_TYPE_LATEST,
+    Counter, Gauge, Histogram, CONTENT_TYPE_LATEST,
     generate_latest, CollectorRegistry
 )
 from starlette.responses import Response
@@ -144,7 +144,7 @@ def setup_metrics_endpoint(app: FastAPI) -> None:
         )
 
     # Set the system info metric
-    from app.core.config import settings
+    from gateway.core.config import settings
 
     SYSTEM_INFO.labels(
         version=settings.VERSION,
