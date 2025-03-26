@@ -18,11 +18,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import SQLAlchemy metadata and models
-from app.db.base import Base
-import app.db.models  # noqa: Import all models to register with Base.metadata
+from gateway.db.base import Base
 
 # Import settings for database connection
-from app.core.config import settings
+from gateway.core.config import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -39,6 +38,7 @@ config.set_main_option("sqlalchemy.url", str(settings.POSTGRES_URI))
 # Add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = Base.metadata
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
