@@ -1,4 +1,3 @@
-
 """
 Utility functions for document extraction shared across modules.
 """
@@ -6,8 +5,7 @@ Utility functions for document extraction shared across modules.
 import re
 from typing import Optional, List, Pattern
 
-from app.models.document import ClinicalDocument, Condition
-
+from extractor.models.document import Condition
 
 # Regex patterns for condition extraction
 CONDITION_PATTERN: Pattern = re.compile(
