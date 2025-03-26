@@ -2,8 +2,8 @@
 Document processor for extracting medical conditions from clinical documents.
 """
 
-from app.extraction.utils import extract_assessment_plan, extract_conditions_rule_based
-from app.models.document import (
+from extractor.extraction.utils import extract_assessment_plan, extract_conditions_rule_based
+from extractor.models.document import (
     ClinicalDocument,
     ExtractionResult,
 )
@@ -26,7 +26,7 @@ class DocumentProcessor:
     def pipeline(self):
         """Lazy-load the pipeline to avoid circular imports."""
         if self._pipeline is None and self.use_langgraph:
-            from app.graph.pipeline import ExtractionPipeline
+            from extractor.graph.pipeline import ExtractionPipeline
             self._pipeline = ExtractionPipeline()
         return self._pipeline
 
