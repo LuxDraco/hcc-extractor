@@ -8,17 +8,17 @@ in the system for event notifications.
 import enum
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Type, TypeVar, Any
+from typing import Dict, List, Optional, Type, TypeVar
 
 from sqlalchemy import (
-    Boolean, DateTime, Enum, ForeignKey, Integer, String, JSON,
+    DateTime, Enum, ForeignKey, Integer, String, JSON,
     select
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from gateway.db.base import Base
 
 # Type variable for Webhook class
 T = TypeVar("T", bound="Webhook")
@@ -88,13 +88,14 @@ class Webhook(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
+
     # user: "User" = relationship("User", back_populates="webhooks")
 
     @classmethod
     async def get_active_webhooks_for_event(
-        cls: Type[T],
-        db: AsyncSession,
-        event_type: WebhookEventType,
+            cls: Type[T],
+            db: AsyncSession,
+            event_type: WebhookEventType,
     ) -> List[T]:
         """
         Get active webhooks that are subscribed to a specific event type.
@@ -113,8 +114,8 @@ class Webhook(Base):
             # Check if event_type is in the event_types array or if "all" is in the array
             .where(
                 (
-                    cls.event_types.contains([event_type.value])
-                    | cls.event_types.contains([WebhookEventType.ALL.value])
+                        cls.event_types.contains([event_type.value])
+                        | cls.event_types.contains([WebhookEventType.ALL.value])
                 )
             )
         )

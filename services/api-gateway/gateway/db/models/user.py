@@ -5,14 +5,14 @@ This module defines the User model for authentication and authorization.
 """
 
 from datetime import datetime
-from typing import List, Optional, Type, TypeVar
+from typing import Optional, Type, TypeVar
 
-from sqlalchemy import Boolean, DateTime, Enum, String, select
+from sqlalchemy import Boolean, DateTime, String, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
-from app.utils.password import get_password_hash, verify_password
-from app.db.base import Base
+from gateway.db.base import Base
+from gateway.utils.password import get_password_hash, verify_password
 
 # Type variable for User class
 T = TypeVar("T", bound="User")

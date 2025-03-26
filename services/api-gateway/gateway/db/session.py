@@ -14,11 +14,11 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import settings
+from gateway.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
-# Create async engine for PostgreSQL
+# Create async engine for PostgresSQL
 engine = create_async_engine(
     str(settings.POSTGRES_URI),
     echo=settings.DEBUG,

@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
-from sqlalchemy import BigInteger, DateTime, String, func, select
+from sqlalchemy import DateTime, func, select
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column

@@ -16,9 +16,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from gateway.db.base import Base
 
 # Type variable for Document class
 T = TypeVar("T", bound="Document")
@@ -26,12 +26,12 @@ T = TypeVar("T", bound="Document")
 
 class ProcessingStatus(enum.Enum):
     """Enum for document processing status."""
-    PENDING = "pending"
-    EXTRACTING = "extracting"
-    ANALYZING = "analyzing"
-    VALIDATING = "validating"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    EXTRACTING = "EXTRACTING"
+    ANALYZING = "ANALYZING"
+    VALIDATING = "VALIDATING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class StorageType(enum.Enum):
@@ -52,11 +52,15 @@ class Document(Base):
     # Core document information
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
 
     # Storage information
     storage_type: Mapped[StorageType] = mapped_column(Enum(StorageType), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # Priority flag
+    priority: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Processing status
     status: Mapped[ProcessingStatus] = mapped_column(
