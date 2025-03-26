@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Dict, Any
 
-from app.models.document import ClinicalDocument
+from extractor.models.document import ClinicalDocument
 
 
 class DocumentParser:
@@ -27,13 +27,13 @@ class DocumentParser:
             Structured clinical document
         """
         # Extract patient information
-        patient_info = self._extract_patient_info(content)
+        patient_info = self._extract_patient_info(self, content=content)
 
         # Extract metadata
-        metadata = self._extract_metadata(content)
+        metadata = self._extract_metadata(self, content=content)
 
         # Create document ID from source
-        document_id = self._generate_document_id(source)
+        document_id = self._generate_document_id(self, source=source)
 
         return ClinicalDocument(
             document_id=document_id,
