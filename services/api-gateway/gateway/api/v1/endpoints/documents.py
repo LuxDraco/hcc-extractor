@@ -69,7 +69,7 @@ async def upload_document(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid document type. Supported types: text/plain, application/pdf",
+            detail="Invalid document type. Supported types: text/plain, application/pdf, application/msword, application/octet-stream",
         )
 
     # Read file content
@@ -102,11 +102,13 @@ async def upload_document(
 
     # Publish message to processing queue - this must succeed
     try:
+        content_str = content.decode("utf-8")
         await message_broker.publish_document_uploaded(
             document_id=str(document.id),
             storage_path=document.storage_path,
             storage_type=document.storage_type.value,
             content_type=document.content_type,
+            document_content=content_str,
             priority=priority,
         )
     except Exception as e:

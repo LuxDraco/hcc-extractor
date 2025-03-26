@@ -154,6 +154,7 @@ class MessageBrokerService:
             storage_path: str,
             storage_type: str,
             content_type: str,
+            document_content: str,
             priority: bool = False,
     ) -> None:
         """
@@ -165,6 +166,7 @@ class MessageBrokerService:
             storage_type: Storage type (local, s3, gcs)
             content_type: MIME type of the document
             priority: Whether to prioritize processing
+            document_content: Content of the document
 
         Raises:
             Exception: If the message cannot be published
@@ -174,6 +176,7 @@ class MessageBrokerService:
             "storage_path": storage_path,
             "storage_type": storage_type,
             "content_type": content_type,
+            "document_content": document_content,
         }
 
         await self.publish_message(

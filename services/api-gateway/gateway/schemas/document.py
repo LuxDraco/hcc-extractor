@@ -50,6 +50,7 @@ class DocumentCreate(DocumentBase):
     is_processed: bool = Field(False, description="Whether the document has been processed")
     processing_started_at: Optional[datetime] = Field(None, description="Timestamp when processing started")
     processing_completed_at: Optional[datetime] = Field(None, description="Timestamp when processing completed")
+    # content: str = Field(..., description="Content of the document")
 
 
 class DocumentUpdate(BaseModel):
