@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 
-from app.core.config import settings
+from gateway.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
