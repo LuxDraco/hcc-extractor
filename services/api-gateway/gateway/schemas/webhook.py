@@ -7,7 +7,7 @@ This module defines Pydantic models for webhook-related operations.
 import enum
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, HttpUrl, validator
 
@@ -105,7 +105,6 @@ class WebhookRead(WebhookBase):
 
     class Config:
         """Pydantic model configuration."""
-        orm_mode = True
         from_attributes = True
 
 

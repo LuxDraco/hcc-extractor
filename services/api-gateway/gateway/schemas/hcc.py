@@ -58,7 +58,7 @@ class HCCCodeRequest(BaseModel):
 
     class Config:
         """Pydantic model configuration."""
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "diagnosis_code": "E11.9",
                 "diagnosis_text": "Type 2 diabetes mellitus"

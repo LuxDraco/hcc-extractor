@@ -7,9 +7,11 @@ This module defines Pydantic models for document-related operations.
 import enum
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
+
+from gateway.models.document import ProcessingStatus
 
 
 class StorageTypeEnum(str, enum.Enum):
@@ -21,12 +23,12 @@ class StorageTypeEnum(str, enum.Enum):
 
 class ProcessingStatusEnum(str, enum.Enum):
     """Enum for document processing status."""
-    PENDING = "pending"
-    EXTRACTING = "extracting"
-    ANALYZING = "analyzing"
-    VALIDATING = "validating"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    EXTRACTING = "EXTRACTING"
+    ANALYZING = "ANALYZING"
+    VALIDATING = "VALIDATING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 
 class DocumentBase(BaseModel):
@@ -44,6 +46,10 @@ class DocumentCreate(DocumentBase):
     priority: bool = Field(False, description="Whether to prioritize processing the document")
     user_id: Optional[uuid.UUID] = Field(None, description="ID of the user who uploaded the document")
     description: Optional[str] = Field(None, description="Optional description of the document")
+    status: ProcessingStatus = Field(ProcessingStatusEnum.PENDING, description="Processing status of the document")
+    is_processed: bool = Field(False, description="Whether the document has been processed")
+    processing_started_at: Optional[datetime] = Field(None, description="Timestamp when processing started")
+    processing_completed_at: Optional[datetime] = Field(None, description="Timestamp when processing completed")
 
 
 class DocumentUpdate(BaseModel):
@@ -73,7 +79,6 @@ class DocumentRead(DocumentBase):
 
     class Config:
         """Pydantic model configuration."""
-        orm_mode = True
         from_attributes = True
 
 
