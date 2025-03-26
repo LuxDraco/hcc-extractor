@@ -6,11 +6,8 @@ from clinical documents using a multi-stage approach combining
 rule-based and LLM-based extraction methods.
 """
 
-from typing import Dict, List, Any, Optional
-
 from langgraph.graph import StateGraph, END
 
-from app.models.document import ClinicalDocument, ExtractionResult
 from app.graph.nodes import (
     GraphState,
     preprocess,
@@ -19,6 +16,7 @@ from app.graph.nodes import (
     merge_results,
     create_result,
 )
+from app.models.document import ClinicalDocument, ExtractionResult
 
 
 class ExtractionPipeline:

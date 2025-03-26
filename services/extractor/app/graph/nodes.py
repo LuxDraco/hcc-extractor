@@ -1,16 +1,12 @@
 """
 Nodes for the LangGraph extraction workflow.
-
-This module defines the individual processing nodes used in the extraction
-workflow graph, including preprocessing, extraction, and result processing.
 """
 
-import re
-from typing import Dict, List, Any, TypedDict, Optional
+from typing import List, TypedDict, Optional
 
-from app.models.document import ClinicalDocument, Condition, ExtractionResult
+from app.extraction.utils import extract_assessment_plan, extract_conditions_rule_based
 from app.llm.client import GeminiClient
-from app.extractor.processor import DocumentProcessor
+from app.models.document import ClinicalDocument, Condition, ExtractionResult
 
 
 class GraphState(TypedDict):
@@ -37,14 +33,8 @@ def preprocess(state: GraphState) -> GraphState:
     document = state["document"]
     content = document.content
 
-    # Extract Assessment/Plan section
-    assessment_pattern = re.compile(
-        r"(?:Assessment\s*/?\s*Plan|Assessment and Plan)[\s\n]*(.*?)(?:\n\s*(?:Return to Office|Encounter Sign-Off|Follow-up|Plan of Care)|$)",
-        re.DOTALL | re.IGNORECASE
-    )
-
-    match = assessment_pattern.search(content)
-    assessment_plan = match.group(1).strip() if match else None
+    # Use the utility function
+    assessment_plan = extract_assessment_plan(content)
 
     # Update state
     state["assessment_plan"] = assessment_plan
@@ -69,20 +59,11 @@ def extract_rule_based(state: GraphState) -> GraphState:
         state["conditions_rule_based"] = []
         return state
 
-    # Use the existing rule-based processor
-    processor = DocumentProcessor()
-    document_with_section = ClinicalDocument(
-        document_id=document.document_id,
-        source=document.source,
-        content=assessment_plan,  # Use only the Assessment/Plan section
-        patient_info=document.patient_info,
-        metadata=document.metadata
-    )
-
-    result = processor.process(document_with_section)
+    # Use the utility function directly instead of DocumentProcessor
+    conditions = extract_conditions_rule_based(assessment_plan)
 
     # Update state
-    state["conditions_rule_based"] = result.conditions
+    state["conditions_rule_based"] = conditions
 
     return state
 
@@ -126,13 +107,8 @@ def extract_llm_based(state: GraphState) -> GraphState:
 def merge_results(state: GraphState) -> GraphState:
     """
     Merge and reconcile results from different extraction approaches.
-
-    Args:
-        state: Current state of the workflow
-
-    Returns:
-        Updated state with merged results
     """
+    # Este código permanece sin cambios ya que no contribuye al ciclo de importación
     rule_based = state["conditions_rule_based"]
     llm_based = state["conditions_llm_based"]
 
@@ -168,13 +144,8 @@ def merge_results(state: GraphState) -> GraphState:
 def create_result(state: GraphState) -> GraphState:
     """
     Create the final extraction result.
-
-    Args:
-        state: Current state of the workflow
-
-    Returns:
-        Updated state with final extraction result
     """
+    # Este código permanece sin cambios ya que no contribuye al ciclo de importación
     document = state["document"]
     conditions = state["final_conditions"]
 
