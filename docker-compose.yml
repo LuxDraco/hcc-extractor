@@ -21,7 +21,7 @@ services:
   traefik:
     image: traefik:v2.11.0
     ports:
-      - "80:80"   # HTTP
+      - "81:80"   # HTTP
       - "443:443"  # HTTPS
       - "8080:8080"  # Dashboard
     volumes:
