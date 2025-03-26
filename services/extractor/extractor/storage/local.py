@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any, Union
 
-from app.models.document import ExtractionResult
+from extractor.models.document import ExtractionResult
 
 
 class LocalStorageManager:

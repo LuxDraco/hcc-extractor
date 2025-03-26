@@ -11,7 +11,7 @@ from typing import List, Optional, Dict, Any
 
 from google.cloud import storage
 
-from app.models.document import ExtractionResult
+from extractor.models.document import ExtractionResult
 
 
 class CloudStorageManager:
