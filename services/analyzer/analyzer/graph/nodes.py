@@ -238,15 +238,42 @@ def finalize_analysis(state: GraphState) -> GraphState:
         "error_count": len(state.get("errors", [])),
     }
 
-    # Fix any NaN values in all conditions
-    for condition in conditions:
-        # Use model_dump to get dict representation
+    # Fix NaN values in metadata
+    state["metadata"] = fix_nan_values(state["metadata"])
+
+    # Fix any NaN values in all conditions and recreate them
+    for i, condition in enumerate(conditions):
+        # Get dict representation
         condition_dict = condition.model_dump()
+
         # Fix NaN values
         fixed_dict = fix_nan_values(condition_dict)
-        # Update condition with fixed values
-        for key, value in fixed_dict.items():
-            if hasattr(condition, key) and value is not None:
-                setattr(condition, key, value)
+
+        # Instead of directly modifying the condition object, which might leave some NaN values,
+        # create a new Condition from the fixed dict
+        from analyzer.models.condition import Condition
+        try:
+            # First fix any NaN values in metadata
+            if "metadata" in fixed_dict:
+                fixed_dict["metadata"] = fix_nan_values(fixed_dict["metadata"])
+
+            # Create a new condition object with fixed values
+            new_condition = Condition(**fixed_dict)
+            conditions[i] = new_condition
+        except Exception as e:
+            # If there's an error creating the new condition, log it and keep the original
+            # but still try to fix individual fields
+            state["errors"].append(f"Error fixing NaN values in condition {condition.id}: {str(e)}")
+
+            # Manual replacement of NaN values in original condition
+            for key, value in fixed_dict.items():
+                if hasattr(condition, key) and value is not None:
+                    try:
+                        setattr(condition, key, value)
+                    except:
+                        pass
+
+    # Update the conditions in the state
+    state["analyzed_conditions"] = conditions
 
     return state
