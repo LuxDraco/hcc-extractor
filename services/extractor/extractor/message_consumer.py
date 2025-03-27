@@ -42,7 +42,7 @@ class MessageConsumer:
             port: int = 5672,
             username: str = "hccuser",
             password: str = "hccpass",
-            queue: str = "document-events",
+            queue: str = "extractor-events",
             exchange: str = "hcc-extractor",
             virtual_host: str = "/",
             input_dir: str = "./data",
@@ -95,31 +95,37 @@ class MessageConsumer:
         """
         try:
             # Create connection string
-            # connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{self.virtual_host}"
-            connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
+            host = self.virtual_host.replace("/", "%2F")
+            connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{host}"
+            # connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
+            logging.info(f"Connecting to RabbitMQ at {connection_string}")
 
             # Connect to RabbitMQ
             self.connection = await aio_pika.connect_robust(connection_string)
 
             # Create channel
             self.channel = await self.connection.channel()
-            await self.channel.set_qos(prefetch_count=1)
+            await self.channel.set_qos(prefetch_count=1, timeout=360, all_channels=True)
 
             # Declare exchange
             self.exchange = await self.channel.declare_exchange(
-                self.exchange_name,
-                ExchangeType.TOPIC,
+                name=self.exchange_name,
+                type=ExchangeType.TOPIC,
                 durable=True
             )
 
             # Declare queue
             self.queue = await self.channel.declare_queue(
-                self.queue_name,
+                name=self.queue_name,
                 durable=True
             )
 
             # Bind queue to exchange with appropriate routing keys
-            await self.queue.bind(self.exchange, routing_key="document.#")
+            # await self.queue.bind(self.exchange, routing_key="#")
+            await self.queue.bind(
+                self.exchange,
+                routing_key="document.uploaded"
+            )
 
             logger.info(f"Connected to RabbitMQ at {self.host}:{self.port}")
 
@@ -159,6 +165,7 @@ class MessageConsumer:
         Args:
             message: The incoming message from RabbitMQ
         """
+        logging.info(f"Received message from queue '{self.queue_name}': {message.body[:100]}...")
         async with message.process():
             try:
                 # Decode message body
@@ -199,6 +206,10 @@ class MessageConsumer:
             return
 
         document_content_tmp = content.get("document_content")
+
+        if not document_content_tmp:
+            storage_full = os.path.join(self.input_dir, storage_path)
+            document_content_tmp = await self._read_file(storage_full)
 
         try:
             logger.info(f"Processing document: {document_id}, path: {storage_path}")
@@ -321,12 +332,12 @@ class MessageConsumer:
         try:
             # Create message
             message_data = {
-                "message_type": "extraction.completed",
+                "message_type": "document.extraction.completed",
                 "document_id": document_id,
                 "extraction_result_path": extraction_result_path,
                 "total_conditions": total_conditions,
-                "extracted_content": extracted_content,
-                "timestamp": asyncio.get_event_loop().time()
+                # "extracted_content": extracted_content,
+                # "timestamp": asyncio.get_event_loop().time()
             }
 
             # Convert to JSON and create message
@@ -376,7 +387,7 @@ async def run_consumer():
     port = int(os.environ.get("RABBITMQ_PORT", "5672"))
     username = os.environ.get("RABBITMQ_USER", "guest")
     password = os.environ.get("RABBITMQ_PASSWORD", "guest")
-    queue = os.environ.get("RABBITMQ_QUEUE", "document-events")
+    queue = os.environ.get("RABBITMQ_QUEUE", "extractor-events")
     exchange = os.environ.get("RABBITMQ_EXCHANGE", "hcc-extractor")
     virtual_host = os.environ.get("RABBITMQ_VHOST", "/")
     input_dir = os.environ.get("INPUT_DIR", "./data")
