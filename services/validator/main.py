@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 from typing import List, Union
 
+from dotenv import load_dotenv
+
 from validator.data.code_repository import CodeRepository
 from validator.message_consumer import run_consumer
 from validator.models.condition import AnalysisResult, ProcessingStatus
@@ -28,6 +30,8 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 class ValidationService:
