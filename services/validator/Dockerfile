@@ -7,13 +7,13 @@ RUN pip install poetry && \
     poetry config virtualenvs.create false
 
 # Copy Poetry configuration files
-COPY pyproject.toml poetry.lock* ./
-
-# Install dependencies
-RUN poetry install --no-interaction --no-ansi --no-root
+COPY pyproject.toml ./
 
 # Copy application code
-COPY ./app /app/app
+COPY . .
+
+# Install dependencies
+RUN poetry install --no-interaction --no-ansi
 
 # Set environment variables
 ENV PYTHONPATH=/app
