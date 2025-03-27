@@ -1,9 +1,13 @@
+"""
+Extraction service for processing clinical documents and extracting HCC-relevant conditions.
+"""
+
 import json
 import logging
 import os
 import sys
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Optional
 
 from extractor.extractor.processor import DocumentProcessor
 from extractor.models.document import (
@@ -11,6 +15,7 @@ from extractor.models.document import (
 )
 from extractor.storage.local import LocalStorageManager
 from extractor.utils.document_parser import DocumentParser
+from extractor.utils.hcc_utils import hcc_manager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +32,8 @@ class ExtractionService:
             self,
             input_dir: Union[str, Path],
             output_dir: Union[str, Path],
-            use_langgraph: bool = True
+            use_langgraph: bool = True,
+            hcc_codes_path: Optional[str] = None
     ) -> None:
         """
         Initialize the extraction service.
@@ -36,6 +42,7 @@ class ExtractionService:
             input_dir: Directory containing input clinical documents
             output_dir: Directory where extraction results will be saved
             use_langgraph: Whether to use LangGraph for extraction
+            hcc_codes_path: Path to the CSV file with HCC codes
         """
         self.input_dir = Path(input_dir)
         self.output_dir = Path(output_dir)
@@ -43,12 +50,18 @@ class ExtractionService:
         self.document_parser = DocumentParser()
         self.processor = DocumentProcessor(use_langgraph=use_langgraph)
 
+        # Initialize HCC code manager
+        if hcc_codes_path:
+            hcc_manager.csv_path = hcc_codes_path
+        hcc_manager.load_hcc_codes()
+
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
         logger.info(
             f"Initialized extraction service with LangGraph {'enabled' if use_langgraph else 'disabled'}"
         )
+        logger.info(f"Loaded {len(hcc_manager.get_all_hcc_codes())} HCC-relevant codes")
 
     def process_documents(self) -> List[ProcessingStatus]:
         """
@@ -74,8 +87,11 @@ class ExtractionService:
                 extraction_result = self.processor.process(doc)
 
                 # Log summary of extraction
+                hcc_relevant_count = sum(
+                    1 for c in extraction_result.conditions if c.metadata.get("is_hcc_relevant", False))
                 logger.info(
-                    f"Extracted {len(extraction_result.conditions)} conditions from {doc_path.name}"
+                    f"Extracted {len(extraction_result.conditions)} conditions from {doc_path.name}, "
+                    f"{hcc_relevant_count} are HCC-relevant"
                 )
 
                 # Save results
@@ -85,7 +101,8 @@ class ExtractionService:
                 status = ProcessingStatus(
                     document_id=doc.document_id,
                     status="success",
-                    message=f"Document processed successfully. Extracted {len(extraction_result.conditions)} conditions.",
+                    message=f"Document processed successfully. Extracted {len(extraction_result.conditions)} conditions, "
+                            f"{hcc_relevant_count} are HCC-relevant.",
                     output_file=output_filename,
                 )
                 results.append(status)
@@ -113,3 +130,67 @@ class ExtractionService:
             json.dump(summary, f, indent=2)
 
         return results
+
+    def process_single_document(self, document_path: Union[str, Path]) -> ProcessingStatus:
+        """
+        Process a single document.
+
+        Args:
+            document_path: Path to the document to process
+
+        Returns:
+            Processing status for the document
+        """
+        doc_path = Path(document_path)
+        try:
+            # Check if file exists
+            if not doc_path.exists():
+                return ProcessingStatus(
+                    document_id=doc_path.name,
+                    status="error",
+                    message=f"Document not found: {doc_path}",
+                    output_file=None
+                )
+
+            # Read document content
+            with open(doc_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Parse into structured format
+            doc = self.document_parser.parse(content, doc_path.name)
+
+            # Process document to extract conditions
+            logger.info(f"Processing document: {doc_path.name}")
+            extraction_result = self.processor.process(doc)
+
+            # Log summary of extraction
+            hcc_relevant_count = sum(
+                1 for c in extraction_result.conditions if c.metadata.get("is_hcc_relevant", False))
+            logger.info(
+                f"Extracted {len(extraction_result.conditions)} conditions from {doc_path.name}, "
+                f"{hcc_relevant_count} are HCC-relevant"
+            )
+
+            # Save results
+            output_filename = f"{doc_path.stem}_extracted.json"
+            output_path = self.output_dir / output_filename
+
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(extraction_result.dict(), f, indent=2)
+
+            return ProcessingStatus(
+                document_id=doc.document_id,
+                status="success",
+                message=f"Document processed successfully. Extracted {len(extraction_result.conditions)} conditions, "
+                        f"{hcc_relevant_count} are HCC-relevant.",
+                output_file=str(output_path),
+            )
+
+        except Exception as e:
+            logger.error(f"Error processing {doc_path.name}: {str(e)}")
+            return ProcessingStatus(
+                document_id=doc_path.name,
+                status="error",
+                message=f"Error: {str(e)}",
+                output_file=None,
+            )
