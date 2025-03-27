@@ -4,6 +4,7 @@ Nodes for the LangGraph analysis workflow.
 This module defines the individual processing nodes used in the analysis
 workflow graph, including HCC relevance determination and verification.
 """
+import logging
 
 from analyzer.graph.state import GraphState
 from analyzer.llm.client import GeminiClient
@@ -73,17 +74,35 @@ def determine_hcc_relevance(state: GraphState) -> GraphState:
         analyzed = condition.model_copy(deep=True)
 
         # Get the ICD code
+        icd_code_no_dot = condition.metadata.get("icd_code_no_dot")
         icd_code = condition.icd_code
 
+        logging.info(f"Icd code: {icd_code}")
+        logging.info(f"Icd code no dot: {icd_code_no_dot}")
+
         # Check if the ICD code is HCC-relevant
-        if icd_code and icd_code in hcc_code_dict:
+        if (icd_code and icd_code_no_dot) and (icd_code in hcc_code_dict or icd_code_no_dot in hcc_code_dict):
             # Mark as HCC-relevant
-            hcc_info = hcc_code_dict[icd_code]
-            analyzed.hcc_relevant = True
-            analyzed.hcc_code = icd_code
-            analyzed.hcc_category = hcc_info.get("Tags", "")
-            analyzed.confidence = 1.0
-            analyzed.reasoning = f"Direct match with HCC-relevant code: {icd_code}"
+            try:
+                # First try with the dotted version
+                if icd_code in hcc_code_dict:
+                    hcc_info = hcc_code_dict[icd_code]
+                # Then try with the no-dot version
+                else:
+                    hcc_info = hcc_code_dict[icd_code_no_dot]
+
+                analyzed.hcc_relevant = True
+                analyzed.hcc_code = icd_code_no_dot
+                analyzed.hcc_category = hcc_info.get("Tags", "")
+                analyzed.confidence = 1.0
+                analyzed.reasoning = f"Direct match with HCC-relevant code: {icd_code}"
+            except KeyError:
+                # This is a safeguard in case the code is somehow in the condition but not in the dictionary
+                analyzed.hcc_relevant = False
+                analyzed.hcc_code = None
+                analyzed.hcc_category = None
+                analyzed.confidence = 0.8
+                analyzed.reasoning = f"Code check resulted in KeyError for {icd_code}/{icd_code_no_dot}"
         else:
             # Not HCC-relevant based on exact match
             analyzed.hcc_relevant = False
@@ -168,6 +187,29 @@ def enrichment_with_llm(state: GraphState) -> GraphState:
     return state
 
 
+def fix_nan_values(data):
+    """
+    Recursively replaces NaN values with None in a nested dictionary or list.
+
+    Args:
+        data: The data structure to fix (dict, list, or scalar value)
+
+    Returns:
+        The data structure with NaN values replaced by None
+    """
+    import math
+
+    if isinstance(data, dict):
+        return {k: fix_nan_values(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [fix_nan_values(item) for item in data]
+    elif isinstance(data, float) and math.isnan(data):
+        return None
+    else:
+        return data
+
+
+# Add this to the finalize_analysis function before returning state
 def finalize_analysis(state: GraphState) -> GraphState:
     """
     Finalize the analysis results.
@@ -195,5 +237,16 @@ def finalize_analysis(state: GraphState) -> GraphState:
         "confidence_avg": sum(c.confidence for c in conditions) / total_conditions if total_conditions > 0 else 0,
         "error_count": len(state.get("errors", [])),
     }
+
+    # Fix any NaN values in all conditions
+    for condition in conditions:
+        # Use model_dump to get dict representation
+        condition_dict = condition.model_dump()
+        # Fix NaN values
+        fixed_dict = fix_nan_values(condition_dict)
+        # Update condition with fixed values
+        for key, value in fixed_dict.items():
+            if hasattr(condition, key) and value is not None:
+                setattr(condition, key, value)
 
     return state

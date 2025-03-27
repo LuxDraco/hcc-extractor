@@ -6,6 +6,8 @@ import json
 import os
 from typing import Dict, List, Any, Optional
 
+import logging
+
 from google.cloud import aiplatform
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 
@@ -69,13 +71,35 @@ class GeminiClient:
 
         # Parse and return the results
         try:
-            # Extract JSON from response
-            results = json.loads(response.text)
-            return results.get("conditions", [])
-        except (json.JSONDecodeError, AttributeError) as e:
-            # Fallback in case of parsing error
-            print(f"Error parsing response: {str(e)}")
-            print(f"Response text: {response.text}")
+            # First try direct JSON parsing
+            try:
+                results = json.loads(response.text)
+                return results.get("conditions", [])
+            except json.JSONDecodeError:
+                # If direct parsing fails, try to extract JSON from markdown code blocks
+                import re
+
+                # Look for JSON code blocks (```json ... ```)
+                json_match = re.search(r'```(?:json)?\s*\n(.*?)\n```', response.text, re.DOTALL)
+                if json_match:
+                    json_content = json_match.group(1)
+                    results = json.loads(json_content)
+                    return results.get("conditions", [])
+
+                # Try looking for just the JSON object pattern
+                json_object_match = re.search(r'(\{\s*"conditions"\s*:.*\})', response.text, re.DOTALL)
+                if json_object_match:
+                    json_content = json_object_match.group(1)
+                    results = json.loads(json_content)
+                    return results.get("conditions", [])
+
+                # If we get here, we couldn't parse the JSON
+                raise ValueError(f"Could not extract valid JSON from response: {response.text[:200]}...")
+
+        except Exception as e:
+            # Log the error and response for debugging
+            logging.error(f"Error parsing response: {str(e)}")
+            logging.error(f"Response text: {response.text}")
             return []
 
     def _create_hcc_analysis_prompt(
@@ -137,5 +161,8 @@ class GeminiClient:
             Note that this is only a sample. The full list of HCC-relevant codes is much more extensive. Use your knowledge to make determinations for codes not in this sample. If you're uncertain, state so in the reasoning field.
             
             Ensure the output is valid JSON.
+            
+            Return just the JSON object with the conditions. Do not include any additional text or formatting.
+            Do not include code limiters (triple quotes) in the response like ```json ``` or ```python```.
             """
         return prompt
