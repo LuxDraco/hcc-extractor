@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import sys
+import uuid
 from typing import Dict, Any, Optional
 
 import aio_pika
@@ -333,7 +334,9 @@ class MessageConsumer:
             message = Message(
                 body=message_json.encode(),
                 delivery_mode=DeliveryMode.PERSISTENT,
-                content_type="application/json"
+                content_type="application/json",
+                message_id=str(uuid.uuid4()),
+                expiration=300
             )
 
             # Publish to exchange
