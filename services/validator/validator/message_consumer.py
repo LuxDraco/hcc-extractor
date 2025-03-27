@@ -15,13 +15,14 @@ from typing import Dict, Any, Optional
 import aio_pika
 from aio_pika import Message, DeliveryMode, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
+from dotenv import load_dotenv
 
 from validator.data.code_repository import CodeRepository
 from validator.db.database_integration import db_updater
+from validator.db.models.document import ProcessingStatus
 from validator.models.condition import AnalysisResult
 from validator.storage.local import LocalStorageManager
 from validator.validator.hcc_validator import HCCValidator
-from validator.db.models.document import ProcessingStatus
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +31,8 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 class MessageConsumer:
@@ -41,7 +44,7 @@ class MessageConsumer:
             port: int = 5672,
             username: str = "guest",
             password: str = "guest",
-            queue: str = "document-events",
+            queue: str = "validator-events",
             exchange: str = "hcc-extractor",
             virtual_host: str = "/",
             input_dir: str = "./data",
@@ -94,8 +97,9 @@ class MessageConsumer:
         """
         try:
             # Create connection string
-            # connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{self.virtual_host}"
-            connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
+            host = self.virtual_host.replace("/", "%2F")
+            connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{host}"
+            logging.info(f"Connecting to RabbitMQ at {connection_string}")
 
             # Connect to RabbitMQ
             self.connection = await aio_pika.connect_robust(connection_string)
@@ -343,7 +347,7 @@ async def run_consumer():
     port = int(os.environ.get("RABBITMQ_PORT", "5672"))
     username = os.environ.get("RABBITMQ_USER", "guest")
     password = os.environ.get("RABBITMQ_PASSWORD", "guest")
-    queue = os.environ.get("RABBITMQ_QUEUE", "document-events")
+    queue = os.environ.get("RABBITMQ_QUEUE", "validator-events")
     exchange = os.environ.get("RABBITMQ_EXCHANGE", "hcc-extractor")
     virtual_host = os.environ.get("RABBITMQ_VHOST", "/")
     input_dir = os.environ.get("INPUT_DIR", "./data")
