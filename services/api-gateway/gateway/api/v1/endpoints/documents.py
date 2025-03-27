@@ -3,8 +3,9 @@ Document endpoints for the API Gateway.
 
 This module defines endpoints for document operations.
 """
-
+import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import structlog
@@ -91,7 +92,7 @@ async def upload_document(
         storage_path=storage_info["storage_path"],
         status=ProcessingStatus.PENDING,
         is_processed=False,
-        processing_started_at=None,
+        processing_started_at=datetime.now(timezone.utc),
         processing_completed_at=None,
         user_id=current_user.id if current_user else None,
         description=description,
@@ -110,6 +111,11 @@ async def upload_document(
             content_type=document.content_type,
             document_content=content_str,
             priority=priority,
+        )
+
+        logger.info(
+            "Document published to processing queue",
+            document_id=str(document.id),
         )
     except Exception as e:
         logger.error(
@@ -135,6 +141,7 @@ async def upload_document(
             detail="Document processing system is currently unavailable. Please try again later.",
         )
 
+    logging.info(f"Document uploaded successfully {str(document.id)}")
     logger.info(
         "Document uploaded successfully",
         document_id=str(document.id),

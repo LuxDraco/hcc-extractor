@@ -5,22 +5,24 @@ This module defines endpoints for batch document processing operations.
 """
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any, List
 
 import structlog
-from gateway.core.dependencies import get_current_user, require_admin_role
-from gateway.db.models.document import Document, ProcessingStatus
-from gateway.db.models.user import User
-from gateway.db.session import get_db
-from gateway.schemas.document import DocumentRead, DocumentList
-from gateway.services.document import DocumentService
-from gateway.services.message_broker import MessageBrokerService
-from gateway.services.storage import StorageService
 from fastapi import (
     APIRouter, BackgroundTasks, Depends, File, Form, HTTPException,
     UploadFile, status
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from gateway.core.dependencies import get_current_user, require_admin_role
+from gateway.db.models.document import ProcessingStatus, StorageType
+from gateway.db.models.user import User
+from gateway.db.session import get_db
+from gateway.schemas.document import DocumentList, DocumentCreate
+from gateway.services.document import DocumentService
+from gateway.services.message_broker import MessageBrokerService
+from gateway.services.storage import StorageService
 
 logger = structlog.get_logger(__name__)
 
@@ -117,36 +119,28 @@ async def batch_upload(
                 filename=file.filename,
                 file_size=len(content),
                 content_type=file.content_type,
-                storage_type=storage_info["storage_type"],
+                storage_type=StorageType[storage_info["storage_type"].upper()].value.upper(),
                 storage_path=storage_info["storage_path"],
-                description=None,  # No description in batch mode
+                description=None,
                 priority=priority,
                 user_id=current_user.id,
+                status=ProcessingStatus.PENDING,
+                is_processed=False,
+                processing_started_at=datetime.now(timezone.utc),
+                processing_completed_at=None,
             )
 
             document = await document_service.create_document(db, document_in)
             created_documents.append(document)
 
-            # Queue for processing (non-blocking)
-            if background_tasks:
-                # Use background tasks to publish without blocking
-                background_tasks.add_task(
-                    message_broker.publish_document_uploaded,
-                    document_id=str(document.id),
-                    storage_path=document.storage_path,
-                    storage_type=document.storage_type.value,
-                    content_type=document.content_type,
-                    priority=priority,
-                )
-            else:
-                # Publish directly if background tasks not available
-                await message_broker.publish_document_uploaded(
-                    document_id=str(document.id),
-                    storage_path=document.storage_path,
-                    storage_type=document.storage_type.value,
-                    content_type=document.content_type,
-                    priority=priority,
-                )
+            await message_broker.publish_document_uploaded(
+                document_id=str(document.id),
+                storage_path=document.storage_path,
+                storage_type=document.storage_type.value,
+                content_type=document.content_type,
+                priority=priority,
+                document_content=content
+            )
 
         except Exception as e:
             logger.exception(
