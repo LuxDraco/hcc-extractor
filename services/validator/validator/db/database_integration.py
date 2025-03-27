@@ -4,12 +4,13 @@ Database integration for the Validator service.
 This module contains the necessary functions to update the state of documents
 in the database as they progress through the processing pipeline.
 """
+import logging
+import os
+import uuid
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, update
 from sqlalchemy.orm import sessionmaker
-import os
-import logging
-import uuid
 
 from validator.db.models.document import ProcessingStatus
 
@@ -17,16 +18,20 @@ from validator.db.models.document import ProcessingStatus
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+load_dotenv()
+
 
 class DatabaseUpdater:
     """Class to handle database updates."""
 
-    def __init__(self,
-                 host=None,
-                 port=None,
-                 user=None,
-                 password=None,
-                 db_name=None):
+    def __init__(
+            self,
+            host=None,
+            port=None,
+            user=None,
+            password=None,
+            db_name=None
+    ):
         """
         Initialize the database updater.
 
