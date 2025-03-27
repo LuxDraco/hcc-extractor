@@ -2,6 +2,15 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    gcc \
+    libc6-dev \
+    python3-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Poetry
 RUN pip install poetry && \
     poetry config virtualenvs.create false
