@@ -2,8 +2,7 @@
 LangGraph-based pipeline for condition extraction.
 
 This module implements a workflow for extracting medical conditions
-from clinical documents using a multi-stage approach combining
-rule-based and LLM-based extraction methods.
+from clinical documents using LangChain with Vertex AI Gemini.
 """
 
 from langgraph.graph import StateGraph, END
@@ -11,9 +10,10 @@ from langgraph.graph import StateGraph, END
 from extractor.graph.nodes import (
     GraphState,
     preprocess,
-    extract_rule_based,
-    extract_llm_based,
-    merge_results,
+    extract_conditions,
+    load_hcc_codes,
+    determine_hcc_relevance,
+    convert_to_model_objects,
     create_result,
 )
 from extractor.models.document import ClinicalDocument, ExtractionResult
@@ -38,16 +38,18 @@ class ExtractionPipeline:
 
         # Add nodes
         builder.add_node("preprocess", preprocess)
-        builder.add_node("extract_rule_based", extract_rule_based)
-        builder.add_node("extract_llm_based", extract_llm_based)
-        builder.add_node("merge_results", merge_results)
+        builder.add_node("extract_conditions", extract_conditions)
+        builder.add_node("load_hcc_codes", load_hcc_codes)
+        builder.add_node("determine_hcc_relevance", determine_hcc_relevance)
+        builder.add_node("convert_to_model_objects", convert_to_model_objects)
         builder.add_node("create_result", create_result)
 
         # Define edges
-        builder.add_edge("preprocess", "extract_rule_based")
-        builder.add_edge("extract_rule_based", "extract_llm_based")
-        builder.add_edge("extract_llm_based", "merge_results")
-        builder.add_edge("merge_results", "create_result")
+        builder.add_edge("preprocess", "extract_conditions")
+        builder.add_edge("extract_conditions", "load_hcc_codes")
+        builder.add_edge("load_hcc_codes", "determine_hcc_relevance")
+        builder.add_edge("determine_hcc_relevance", "convert_to_model_objects")
+        builder.add_edge("convert_to_model_objects", "create_result")
         builder.add_edge("create_result", END)
 
         # Set the entry point
@@ -70,9 +72,9 @@ class ExtractionPipeline:
         initial_state: GraphState = {
             "document": document,
             "assessment_plan": None,
-            "conditions_rule_based": [],
-            "conditions_llm_based": [],
+            "conditions_extracted": [],
             "final_conditions": [],
+            "hcc_codes": [],
             "extraction_result": None,
         }
 

@@ -1,12 +1,19 @@
 """
 Nodes for the LangGraph extraction workflow.
 """
+import csv
+import logging
+import os
+from pathlib import Path
+from typing import List, TypedDict, Optional, Dict, Any
 
-from typing import List, TypedDict, Optional
+from dotenv import load_dotenv
 
-from extractor.extraction.utils import extract_assessment_plan, extract_conditions_rule_based
-from extractor.llm.client import GeminiClient
+from extractor.extraction.utils import extract_assessment_plan
+from extractor.llm.client import LangChainGeminiClient
 from extractor.models.document import ClinicalDocument, Condition, ExtractionResult
+
+load_dotenv()
 
 
 class GraphState(TypedDict):
@@ -14,9 +21,9 @@ class GraphState(TypedDict):
 
     document: ClinicalDocument
     assessment_plan: Optional[str]
-    conditions_rule_based: List[Condition]
-    conditions_llm_based: List[Condition]
+    conditions_extracted: List[Dict[str, Any]]
     final_conditions: List[Condition]
+    hcc_codes: List[str]
     extraction_result: Optional[ExtractionResult]
 
 
@@ -33,7 +40,7 @@ def preprocess(state: GraphState) -> GraphState:
     document = state["document"]
     content = document.content
 
-    # Use the utility function
+    # Extract the Assessment/Plan section
     assessment_plan = extract_assessment_plan(content)
 
     # Update state
@@ -42,98 +49,119 @@ def preprocess(state: GraphState) -> GraphState:
     return state
 
 
-def extract_rule_based(state: GraphState) -> GraphState:
+def extract_conditions(state: GraphState) -> GraphState:
     """
-    Extract conditions using rule-based approach.
+    Extract conditions using LangChain and Gemini.
 
     Args:
         state: Current state of the workflow
 
     Returns:
-        Updated state with rule-based extraction results
+        Updated state with condition extraction results
     """
     document = state["document"]
-    assessment_plan = state["assessment_plan"]
 
-    if not assessment_plan:
-        state["conditions_rule_based"] = []
-        return state
-
-    # Use the utility function directly instead of DocumentProcessor
-    conditions = extract_conditions_rule_based(assessment_plan)
+    # Use LangChain client for extraction
+    client = LangChainGeminiClient()
+    extracted_conditions = client.extract_conditions(document.content)
 
     # Update state
-    state["conditions_rule_based"] = conditions
+    state["conditions_extracted"] = extracted_conditions
 
     return state
 
 
-def extract_llm_based(state: GraphState) -> GraphState:
+def load_hcc_codes(state: GraphState) -> GraphState:
     """
-    Extract conditions using LLM-based approach.
+    Load HCC-relevant codes from the CSV file.
 
     Args:
         state: Current state of the workflow
 
     Returns:
-        Updated state with LLM-based extraction results
+        Updated state with HCC codes loaded
     """
-    document = state["document"]
+    # Path to the HCC codes CSV file
+    csv_path = os.environ.get("HCC_CODES_PATH", "../data/HCC_relevant_codes.csv")
+    csv_path = Path(csv_path)
+    hcc_codes = []
 
-    # Use Gemini for extraction
-    client = GeminiClient()
-    llm_conditions_data = client.extract_conditions(document.content)
+    try:
+        if csv_path.exists():
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Get the ICD-10 code without the dot
+                    code = row.get("ICD-10-CM Codes", "").strip()
+                    hcc_codes.append(code)
+        else:
+            # Fallback to in-memory processing if file not available
+            # This would be populated from the database or another source
+            pass
 
-    # Convert to Condition objects
-    llm_conditions = []
-    for idx, cond_data in enumerate(llm_conditions_data):
+    except Exception as e:
+        print(f"Error loading HCC codes: {e}")
+
+    # Update state
+    state["hcc_codes"] = hcc_codes
+
+    return state
+
+
+def determine_hcc_relevance(state: GraphState) -> GraphState:
+    """
+    Determine which conditions are HCC-relevant.
+
+    Args:
+        state: Current state of the workflow
+
+    Returns:
+        Updated state with HCC relevance determined
+    """
+    extracted_conditions = state["conditions_extracted"]
+    hcc_codes = state["hcc_codes"]
+
+    logging.info(f"HCC codes: {hcc_codes[0]}")
+
+    # Check each condition for HCC relevance
+    for condition in extracted_conditions:
+        icd_code_no_dot = condition.get("icd_code_no_dot")
+        icd_code = condition.get("icd_code")
+        logging.info(f"Checking HCC relevance for {icd_code_no_dot} || ({icd_code})")
+        condition["is_hcc_relevant"] = icd_code_no_dot in hcc_codes or icd_code in hcc_codes
+
+    return state
+
+
+def convert_to_model_objects(state: GraphState) -> GraphState:
+    """
+    Convert extracted conditions to Condition model objects.
+
+    Args:
+        state: Current state of the workflow
+
+    Returns:
+        Updated state with final condition objects
+    """
+    extracted_conditions = state["conditions_extracted"]
+    final_conditions = []
+
+    for idx, cond_data in enumerate(extracted_conditions):
         condition = Condition(
-            id=cond_data.get("id", f"llm-cond-{idx + 1}"),
+            id=cond_data.get("id", f"cond-{idx + 1}"),
             name=cond_data.get("name", ""),
             icd_code=cond_data.get("icd_code"),
             icd_description=cond_data.get("icd_description"),
             details=cond_data.get("details"),
             confidence=cond_data.get("confidence", 0.9),
-            metadata={"source": "llm"}
+            metadata={
+                "extraction_method": "langgraph_llm",
+                "status": cond_data.get("status"),
+                "icd_code_no_dot": cond_data.get("icd_code_no_dot"),
+                "is_hcc_relevant": cond_data.get("is_hcc_relevant", False)
+            }
         )
-        llm_conditions.append(condition)
-
-    # Update state
-    state["conditions_llm_based"] = llm_conditions
-
-    return state
-
-
-def merge_results(state: GraphState) -> GraphState:
-    """
-    Merge and reconcile results from different extraction approaches.
-    """
-    # Este código permanece sin cambios ya que no contribuye al ciclo de importación
-    rule_based = state["conditions_rule_based"]
-    llm_based = state["conditions_llm_based"]
-
-    # Create a map of rule-based conditions by name for easy lookup
-    rule_based_map = {cond.name.lower(): cond for cond in rule_based}
-
-    final_conditions = []
-
-    # First, add all rule-based conditions to the final list
-    for rule_cond in rule_based:
-        rule_cond.metadata["extraction_method"] = "rule_based"
-        final_conditions.append(rule_cond)
-
-    # Then, add LLM-based conditions that weren't found by rules
-    for llm_cond in llm_based:
-        llm_name = llm_cond.name.lower()
-        if llm_name not in rule_based_map:
-            llm_cond.metadata["extraction_method"] = "llm_only"
-            final_conditions.append(llm_cond)
-        else:
-            # For conditions found by both methods, we could update metadata
-            # to indicate higher confidence, but we'll keep the rule-based one
-            rule_cond = rule_based_map[llm_name]
-            rule_cond.metadata["also_found_by_llm"] = True
-            rule_cond.metadata["llm_confidence"] = llm_cond.confidence
+        final_conditions.append(condition)
 
     # Update state
     state["final_conditions"] = final_conditions
@@ -144,10 +172,18 @@ def merge_results(state: GraphState) -> GraphState:
 def create_result(state: GraphState) -> GraphState:
     """
     Create the final extraction result.
+
+    Args:
+        state: Current state of the workflow
+
+    Returns:
+        Updated state with final extraction result
     """
-    # Este código permanece sin cambios ya que no contribuye al ciclo de importación
     document = state["document"]
     conditions = state["final_conditions"]
+
+    # Count HCC-relevant conditions
+    hcc_relevant_count = sum(1 for c in conditions if c.metadata.get("is_hcc_relevant", False))
 
     # Create extraction result
     result = ExtractionResult(
@@ -156,11 +192,8 @@ def create_result(state: GraphState) -> GraphState:
         metadata={
             "source": document.source,
             "total_conditions": len(conditions),
-            "rule_based_count": len(state["conditions_rule_based"]),
-            "llm_based_count": len(state["conditions_llm_based"]),
-            "unique_to_rules": len([c for c in conditions if c.metadata.get("extraction_method") == "rule_based"]),
-            "unique_to_llm": len([c for c in conditions if c.metadata.get("extraction_method") == "llm_only"]),
-            "found_by_both": len([c for c in conditions if c.metadata.get("also_found_by_llm", False)]),
+            "hcc_relevant_count": hcc_relevant_count,
+            "extraction_method": "langgraph_llm",
         }
     )
 
