@@ -147,6 +147,18 @@ services:
       - INPUT_DIR=/app/data
       - OUTPUT_DIR=/app/output
       - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=hcc_extractor
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_DEFAULT_USER=hccuser
+      - RABBITMQ_DEFAULT_PASS=hccpass
+      - RABBITMQ_USER=hccuser
+      - RABBITMQ_PASSWORD=hccpass
+      - RABBITMQ_VHOST=/
     depends_on:
       - analyzer
 
