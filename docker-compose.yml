@@ -106,6 +106,8 @@ services:
     build:
       context: ./services/analyzer
       dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
     volumes:
       - ./data:/app/data  # Mount the data directory
       - ./output:/app/output  # Mount the output directory
@@ -160,7 +162,10 @@ services:
       - RABBITMQ_PASSWORD=hccpass
       - RABBITMQ_VHOST=/
     depends_on:
-      - analyzer
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   # Storage Watcher Service
   storage-watcher:
