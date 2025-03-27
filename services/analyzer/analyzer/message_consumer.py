@@ -16,9 +16,11 @@ import aio_pika
 from aio_pika import Message, DeliveryMode, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
 
+from analyzer.db.models.document import ProcessingStatus
 from analyzer.graph.pipeline import AnalysisPipeline
 from analyzer.models.condition import Condition, AnalysisResult
 from analyzer.storage.local import LocalStorageManager
+from analyzer.db.database_integration import db_updater
 
 # Configure logging
 logging.basicConfig(
@@ -90,7 +92,8 @@ class MessageConsumer:
         """
         try:
             # Create connection string
-            connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{self.virtual_host}"
+            #connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{self.virtual_host}"
+            connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
 
             # Connect to RabbitMQ
             self.connection = await aio_pika.connect_robust(connection_string)
@@ -195,6 +198,14 @@ class MessageConsumer:
         try:
             logger.info(f"Processing extraction result: {document_id}, path: {extraction_result_path}")
 
+            # Update document status in database to ANALYZING
+            db_updater.update_document_analysis_status(
+                document_id=document_id,
+                total_conditions=total_conditions,
+                status=ProcessingStatus.ANALYZING,
+                extraction_result_path=str(extraction_result_path)
+            )
+
             # Read extraction result from file or from message
             extraction_json = None
 
@@ -226,6 +237,12 @@ class MessageConsumer:
                         extraction_json = json.load(f)
                 else:
                     logger.error(f"Extraction result file not found: {input_filepath}")
+
+                    # Update status to FAILED if file not found
+                    db_updater.update_document_analysis_status(
+                        document_id=document_id,
+                        status=ProcessingStatus.FAILED
+                    )
                     return
 
             # Convert JSON to Condition objects
@@ -258,7 +275,17 @@ class MessageConsumer:
             hcc_relevant_count = sum(1 for c in analysis_result.conditions if c.hcc_relevant)
 
             logger.info(
-                f"Analysis completed for document {document_id}. Found {hcc_relevant_count} HCC-relevant conditions.")
+                f"Analysis completed for document {document_id}. Found {hcc_relevant_count} HCC-relevant conditions."
+            )
+
+            # Update document status and analysis information in database
+            db_updater.update_document_analysis_status(
+                document_id=document_id,
+                total_conditions=len(analysis_result.conditions),
+                hcc_relevant_conditions=hcc_relevant_count,
+                analysis_result_path=output_filename,
+                status=ProcessingStatus.ANALYZING  # At this point, we've completed the analysis
+            )
 
             # Publish analysis completed message
             await self._publish_analysis_completed(
@@ -269,6 +296,12 @@ class MessageConsumer:
 
         except Exception as e:
             logger.exception(f"Error processing extraction result {document_id}: {str(e)}")
+
+            # Update status to FAILED in case of error
+            db_updater.update_document_analysis_status(
+                document_id=document_id,
+                status=ProcessingStatus.FAILED
+            )
             # Could publish an error message back to the queue here
 
     def _parse_conditions_from_content(self, content: str) -> List[Dict[str, Any]]:
