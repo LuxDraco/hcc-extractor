@@ -119,13 +119,13 @@ docker run -v /path/to/data:/app/data \
 You can visualize the analysis pipeline using the LangGraph development web app:
 
 ```bash
-docker-compose exec analyzer bash -c "cd /app && poetry run langgraph dev --host 0.0.0.0 --port 8001"
+docker compose exec analyzer bash -c "cd /app && poetry run langgraph dev --host 0.0.0.0 --port 8001"
 ```
 
 This will provide an interactive visualization of the workflow nodes and state transitions at:
 
 ```
-http://127.0.0.1:9001
+http://127.0.0.1:8001
 ```
 
 ## Troubleshooting
