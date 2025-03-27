@@ -6,6 +6,7 @@ for communication with other services.
 """
 
 import json
+import logging
 import time
 import uuid
 from typing import Any, Dict, Optional
@@ -83,8 +84,10 @@ class MessageBrokerService:
 
         try:
             # Initialize if needed
-            if not hasattr(self, "exchange") or self.exchange is None or not hasattr(self,
-                                                                                     "queue") or self.queue is None:
+            if (not hasattr(self, "exchange")
+                    or self.exchange is None
+                    or not hasattr(self, "queue")
+                    or self.queue is None):
                 try:
                     await self._initialize()
                 except Exception as e:
@@ -125,6 +128,7 @@ class MessageBrokerService:
                 queue=self.queue_name, message_type=message_type
             ).inc()
 
+            logging.info(f"Message published: {message}")
             logger.info(
                 "Message published",
                 routing_key=routing_key,
@@ -138,6 +142,8 @@ class MessageBrokerService:
             RABBITMQ_MESSAGES_FAILED.labels(
                 queue=self.queue_name, message_type=message_type
             ).inc()
+
+            logging.error(f"Error publishing message: {str(e)}")
 
             logger.error(
                 "Error publishing message",
