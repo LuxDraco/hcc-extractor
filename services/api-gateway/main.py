@@ -9,6 +9,7 @@ import time
 from contextlib import asynccontextmanager
 
 import structlog
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -25,6 +26,8 @@ from gateway.utils.metrics import setup_metrics_endpoint, API_REQUESTS, API_REQU
 # Configure logging
 configure_logging(log_level=settings.LOG_LEVEL)
 logger = structlog.get_logger(__name__)
+
+load_dotenv()
 
 
 @asynccontextmanager

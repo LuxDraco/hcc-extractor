@@ -103,13 +103,13 @@ python -m scripts.create_admin_user
 Start the service in development mode:
 
 ```bash
-uvicorn gateway.main:gateway --reload --port 8000
+uvicorn main:app --reload --port 8000
 ```
 
 Or using Poetry:
 
 ```bash
-poetry run uvicorn gateway.main:gateway --reload --port 8000
+poetry run uvicorn main:app --reload --port 8000
 ```
 
 ### Using Docker
