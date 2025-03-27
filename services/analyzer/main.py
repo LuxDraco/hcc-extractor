@@ -90,7 +90,7 @@ class AnalysisService:
                     continue
 
                 # Convert to condition objects
-                from app.models.condition import Condition
+                from analyzer.models.condition import Condition
                 conditions = [
                     Condition(**cond_data) for cond_data in conditions_data
                 ]
@@ -106,7 +106,10 @@ class AnalysisService:
                 )
 
                 # Save results
-                output_filename = f"{file_path.stem}_analyzed.json"
+                file_path_tmp = file_path.stem
+                file_path_tmp = file_path_tmp.replace("extracted", "analyzed")
+                # output_filename = f"{file_path_tmp}_analyzed.json"
+                output_filename = file_path_tmp + ".json"
                 self.storage.save_result(analysis_result, output_filename)
 
                 results.append(
