@@ -13,10 +13,10 @@ import sys
 from pathlib import Path
 from typing import List, Union
 
-from app.data.code_repository import CodeRepository
-from app.models.condition import AnalysisResult, ProcessingStatus
-from app.storage.local import LocalStorageManager
-from app.validator.hcc_validator import HCCValidator
+from validator.data.code_repository import CodeRepository
+from validator.models.condition import AnalysisResult, ProcessingStatus
+from validator.storage.local import LocalStorageManager
+from validator.validator.hcc_validator import HCCValidator
 
 # Configure logging
 logging.basicConfig(
@@ -143,7 +143,7 @@ class ValidationService:
 def main() -> None:
     """Run the validation service."""
     # Get directories from environment variables or use defaults
-    input_dir = os.environ.get("INPUT_DIR", "./data")
+    input_dir = os.environ.get("INPUT_DIR", "validator/data")
     output_dir = os.environ.get("OUTPUT_DIR", "./output")
     hcc_codes_path = os.environ.get("HCC_CODES_PATH", "./data/HCC_relevant_codes.csv")
 
