@@ -5,7 +5,7 @@ This module implements a workflow for analyzing medical conditions
 and determining their HCC relevance using a multi-stage approach
 combining rule-based and LLM-based methods.
 """
-
+import os
 from pathlib import Path
 from typing import Dict, List, Any, Union
 
@@ -119,3 +119,14 @@ class AnalysisPipeline:
         )
 
         return analysis_result
+
+
+# Add this to the end of the file for easier development access
+def get_analysis_graph():
+    hcc_codes_path = os.environ.get("HCC_CODES_PATH", "../../data/HCC_relevant_codes.csv")
+    pipeline = AnalysisPipeline(hcc_codes_path=hcc_codes_path)
+    return pipeline.graph
+
+
+# Expose directly for CLI discovery
+analysis_graph = get_analysis_graph()
