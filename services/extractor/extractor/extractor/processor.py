@@ -2,9 +2,12 @@
 Document processor for extracting medical conditions from clinical documents.
 """
 
-from extractor.extraction.utils import extract_assessment_plan, extract_conditions_rule_based
+from typing import List, Dict, Any
+
+from extractor.llm.client import LangChainGeminiClient
 from extractor.models.document import (
     ClinicalDocument,
+    Condition,
     ExtractionResult,
 )
 
@@ -17,10 +20,11 @@ class DocumentProcessor:
         Initialize the document processor.
 
         Args:
-            use_langgraph: Whether to use the LangGraph pipeline (if False, only rule-based)
+            use_langgraph: Whether to use the LangGraph pipeline (if False, only use direct LLM)
         """
         self.use_langgraph = use_langgraph
         self._pipeline = None
+        self.llm_client = LangChainGeminiClient()
 
     @property
     def pipeline(self):
@@ -44,32 +48,24 @@ class DocumentProcessor:
             # Use the LangGraph pipeline for extraction
             return self.pipeline.process(document)
         else:
-            # Use only the rule-based extraction as fallback
-            return self._process_rule_based(document)
+            # Use direct LLM extraction as fallback
+            return self._process_with_llm(document)
 
-    def _process_rule_based(self, document: ClinicalDocument) -> ExtractionResult:
+    def _process_with_llm(self, document: ClinicalDocument) -> ExtractionResult:
         """
-        Process a document using only rule-based extraction.
+        Process a document using direct LLM extraction without the full graph.
 
         Args:
             document: The clinical document to process
 
         Returns:
-            Extraction result with rule-based extraction
+            Extraction result with LLM-based extraction
         """
-        # Extract the Assessment/Plan section
-        assessment_plan = extract_assessment_plan(document.content)
-        if not assessment_plan:
-            return ExtractionResult(
-                document_id=document.document_id,
-                conditions=[],
-                metadata={
-                    "error": "Assessment/Plan section not found in document"
-                }
-            )
+        # Extract conditions using LLM
+        raw_conditions = self.llm_client.extract_conditions(document.content)
 
-        # Extract conditions from the Assessment/Plan section
-        conditions = extract_conditions_rule_based(assessment_plan)
+        # Convert to Condition objects
+        conditions = self._convert_to_condition_objects(raw_conditions)
 
         return ExtractionResult(
             document_id=document.document_id,
@@ -77,6 +73,37 @@ class DocumentProcessor:
             metadata={
                 "source": document.source,
                 "total_conditions": len(conditions),
-                "extraction_method": "rule_based"
+                "extraction_method": "llm_direct"
             }
         )
+
+    def _convert_to_condition_objects(self, raw_conditions: List[Dict[str, Any]]) -> List[Condition]:
+        """
+        Convert raw condition dictionaries to Condition objects.
+
+        Args:
+            raw_conditions: List of condition dictionaries from LLM
+
+        Returns:
+            List of Condition objects
+        """
+        conditions = []
+
+        for idx, cond_data in enumerate(raw_conditions):
+            condition = Condition(
+                id=cond_data.get("id", f"llm-cond-{idx + 1}"),
+                name=cond_data.get("name", ""),
+                icd_code=cond_data.get("icd_code"),
+                icd_description=cond_data.get("icd_description"),
+                details=cond_data.get("details"),
+                confidence=cond_data.get("confidence", 0.9),
+                metadata={
+                    "extraction_method": "llm",
+                    "status": cond_data.get("status"),
+                    "icd_code_no_dot": cond_data.get("icd_code_no_dot"),
+                    "is_hcc_relevant": cond_data.get("is_hcc_relevant", False)
+                }
+            )
+            conditions.append(condition)
+
+        return conditions
