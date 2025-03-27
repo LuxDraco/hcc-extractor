@@ -9,7 +9,7 @@ from typing import Dict, List, Any
 
 from pydantic import BaseModel, Field
 
-from app.models.condition import Condition
+from analyzer.models.condition import Condition
 
 
 class ExtractionMessage(BaseModel):
