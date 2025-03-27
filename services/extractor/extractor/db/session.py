@@ -22,7 +22,7 @@ logger = structlog.get_logger(__name__)
 
 # Create async engine for PostgresSQL
 engine = create_async_engine(
-    str(settings.POSTGRES_URI),
+    f"postgresql+asyncpg://{settings.POSTGRES_USER}:postgres@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}",
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,
@@ -37,7 +37,8 @@ async_session_factory = async_sessionmaker(
 
 async def create_database_pool():
     """Initialize database connection pool."""
-    logger.info("Creating database connection pool", db_uri=settings.POSTGRES_URI)
+    postgres_uri = f"postgresql+asyncpg://{settings.POSTGRES_USER}:postgres@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    logger.info("Creating database connection pool", db_uri=postgres_uri)
 
 
 async def close_database_pool():
@@ -48,7 +49,7 @@ async def close_database_pool():
 
 def get_db_session():
     """Get a database session."""
-    engine_tmp = create_engine(settings.POSTGRES_URI)
+    engine_tmp = create_engine(f"postgresql://{settings.POSTGRES_USER}:postgres@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
     session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine_tmp)
     db = session_local()
     try:

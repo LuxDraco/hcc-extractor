@@ -15,11 +15,11 @@ from typing import Dict, Any, Optional
 import aio_pika
 from aio_pika import Message, DeliveryMode, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
+from sqlalchemy import update
 
 from extractor.db.models.document import Document
-from extractor.db.session import get_db, get_db_session
+from extractor.db.session import get_db_session
 from extractor.extractor.processor import DocumentProcessor
-from extractor.models.document import ClinicalDocument
 from extractor.storage.local import LocalStorageManager
 from extractor.utils.document_parser import DocumentParser
 
@@ -218,17 +218,19 @@ class MessageConsumer:
                 extraction_result = self.processor.process(doc)
 
                 # Save to db
+                logging.info(f"Updating document {document_id} in database")
                 from uuid import UUID
                 db = next(get_db_session())
-                document_data = Document(
-                    id=UUID(extraction_result.document_id),
-                    total_conditions=len(extraction_result.conditions),
-                    doc_metadata=extraction_result.metadata
+                stmt = (
+                    update(Document)
+                    .where(Document.id == UUID(extraction_result.document_id))
+                    .values(
+                        total_conditions=len(extraction_result.conditions),
+                        doc_metadata=extraction_result.metadata,
+                    )
                 )
-                # Update document in db
-                db.merge(document_data)
+                db.execute(stmt)
                 db.commit()
-                db.refresh(document_data)
 
                 # Save results
                 output_filename = f"{document_id}_extracted.json"
@@ -284,7 +286,7 @@ class MessageConsumer:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,
-                lambda: self._write_json_file(output_path, result_dict)
+                lambda: self._write_json_file(self, output_path, result_dict)
             )
 
     @staticmethod

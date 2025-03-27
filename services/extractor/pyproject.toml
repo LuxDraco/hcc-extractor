@@ -26,6 +26,9 @@ aiofiles = "^23.2.1"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.39"}
 alembic = "^1.15.1"
 asyncpg = "^0.28.0"
+psycopg2-binary = "^2.9.10"
+pandas = "^2.2.2"
+pyarrow = "19.0.1"
 
 [tool.poetry.dependencies.uvicorn]
 extras = ["standard"]

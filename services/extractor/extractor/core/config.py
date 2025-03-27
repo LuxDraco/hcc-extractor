@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[Union[AnyHttpUrl, str]] = ["*"]
 
     # Database settings
-    POSTGRES_HOST: str = "localhost"
+    POSTGRES_HOST: str = "postgres"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: SecretStr = Field(default=SecretStr("postgres"))
