@@ -1,0 +1,20 @@
+{
+  "inmem": {
+    "enabled": true
+  },
+  "tracing": {
+    "connection_string": "inmem:",
+    "enabled": true
+  },
+  "workspace": {
+    "path": "./analyzer/graph"
+  },
+  "dependencies": [
+    "analyzer.graph.pipeline",
+    "analyzer.graph.nodes",
+    "analyzer.graph.state"
+  ],
+  "graphs": {
+    "hcc_analyzer_graph": "analyzer.graph.pipeline:analysis_graph"
+  }
+}
