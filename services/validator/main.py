@@ -6,6 +6,8 @@ for validating HCC relevance determinations, applying business rules, and ensuri
 proper compliance documentation.
 """
 
+import argparse
+import asyncio
 import json
 import logging
 import os
@@ -14,6 +16,7 @@ from pathlib import Path
 from typing import List, Union
 
 from validator.data.code_repository import CodeRepository
+from validator.message_consumer import run_consumer
 from validator.models.condition import AnalysisResult, ProcessingStatus
 from validator.storage.local import LocalStorageManager
 from validator.validator.hcc_validator import HCCValidator
@@ -140,25 +143,73 @@ class ValidationService:
         return results
 
 
-def main() -> None:
-    """Run the validation service."""
-    # Get directories from environment variables or use defaults
-    input_dir = os.environ.get("INPUT_DIR", "validator/data")
-    output_dir = os.environ.get("OUTPUT_DIR", "./output")
-    hcc_codes_path = os.environ.get("HCC_CODES_PATH", "./data/HCC_relevant_codes.csv")
+async def run_service(mode: str) -> None:
+    """
+    Run the validator service in the specified mode.
 
-    logger.info(
-        f"Starting validation service with input_dir={input_dir}, "
-        f"output_dir={output_dir}, hcc_codes_path={hcc_codes_path}"
+    Args:
+        mode: Service mode ('batch' for local file processing, 'consumer' for message queue)
+    """
+    try:
+        if mode == "batch":
+            # Process local files in batch mode
+            input_dir = os.environ.get("INPUT_DIR", "./data")
+            output_dir = os.environ.get("OUTPUT_DIR", "./output")
+            hcc_codes_path = os.environ.get("HCC_CODES_PATH", "./data/HCC_relevant_codes.csv")
+
+            logger.info(
+                f"Starting validation service in batch mode with input_dir={input_dir}, "
+                f"output_dir={output_dir}, hcc_codes_path={hcc_codes_path}"
+            )
+
+            service = ValidationService(input_dir, output_dir, hcc_codes_path)
+            service.process_analysis_results()
+
+        elif mode == "consumer":
+            # Run as message consumer
+            await run_consumer()
+
+        elif mode == "both":
+            # First process local files, then run as consumer
+            input_dir = os.environ.get("INPUT_DIR", "./data")
+            output_dir = os.environ.get("OUTPUT_DIR", "./output")
+            hcc_codes_path = os.environ.get("HCC_CODES_PATH", "./data/HCC_relevant_codes.csv")
+
+            logger.info(
+                f"Starting validation service in both modes with input_dir={input_dir}, "
+                f"output_dir={output_dir}, hcc_codes_path={hcc_codes_path}"
+            )
+
+            service = ValidationService(input_dir, output_dir, hcc_codes_path)
+            service.process_analysis_results()
+
+            # Then start the consumer
+            await run_consumer()
+        else:
+            logger.error(f"Unknown mode: {mode}")
+    except Exception as e:
+        logger.exception(f"Error running service: {str(e)}")
+
+
+def main() -> None:
+    """Entry point for the service."""
+    # Define command line arguments
+    parser = argparse.ArgumentParser(description="HCC Validator Service")
+    parser.add_argument(
+        "--mode",
+        choices=["batch", "consumer", "both"],
+        default="both",
+        help="Service mode (batch for local files, consumer for message queue, both for both)"
     )
 
-    service = ValidationService(input_dir, output_dir, hcc_codes_path)
-    results = service.process_analysis_results()
+    # Parse arguments
+    args = parser.parse_args()
 
-    logger.info(f"Processed {len(results)} analysis results")
-    logger.info(f"Successful: {sum(1 for r in results if r.status == 'success')}")
-    logger.info(f"Warnings: {sum(1 for r in results if r.status == 'warning')}")
-    logger.info(f"Failed: {sum(1 for r in results if r.status == 'error')}")
+    try:
+        # Run service with specified mode
+        asyncio.run(run_service(args.mode))
+    except KeyboardInterrupt:
+        logger.info("Service interrupted")
 
 
 if __name__ == "__main__":
