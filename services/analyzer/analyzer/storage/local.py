@@ -37,10 +37,10 @@ class LocalStorageManager:
         Returns:
             List of paths to input files
         """
-        # Find all JSON files in the input directory
+        # Find all JSON files in the input directory with *_extracted.json pattern
         return [
-            f for f in self.input_dir.glob("*")
-            if f.is_file() and f.suffix.lower() == ".json"
+            f for f in self.output_dir.glob("*_extracted.json")
+            if f.is_file()
         ]
 
     def read_json_file(self, path: Path) -> Dict[str, Any]:
