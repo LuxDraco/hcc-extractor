@@ -61,7 +61,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=hcc_extractor
-      - INPUT_DIR=/app/data
+      - INPUT_DIR=/app/data/pn
       - OUTPUT_DIR=/app/output
       - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
     ports:
@@ -85,7 +85,7 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
       - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
       - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
-      - INPUT_DIR=/app/data
+      - INPUT_DIR=/app/data/pn
       - OUTPUT_DIR=/app/output
       - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
       - USE_LANGGRAPH=1
@@ -101,6 +101,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=hcc_extractor
+      - RABBITMQ_QUEUE=extractor-events
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -129,7 +130,7 @@ services:
       - RABBITMQ_USER=hccuser
       - RABBITMQ_PASSWORD=hccpass
       - RABBITMQ_VHOST=/
-      - INPUT_DIR=/app/data
+      - INPUT_DIR=/app/data/pn
       - OUTPUT_DIR=/app/output
       - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
       - POSTGRES_HOST=postgres
@@ -137,6 +138,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=hcc_extractor
+      - RABBITMQ_QUEUE=analyzer-events
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -152,7 +154,10 @@ services:
       - ./data:/app/data  # Mount the data directory
       - ./output:/app/output  # Mount the output directory
     environment:
-      - INPUT_DIR=/app/data
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION}
+      - INPUT_DIR=/app/data/pn
       - OUTPUT_DIR=/app/output
       - HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv
       - POSTGRES_HOST=postgres
@@ -167,6 +172,7 @@ services:
       - RABBITMQ_USER=hccuser
       - RABBITMQ_PASSWORD=hccpass
       - RABBITMQ_VHOST=/
+      - RABBITMQ_QUEUE=validator-events
     depends_on:
       rabbitmq:
         condition: service_healthy
