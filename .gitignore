@@ -79,6 +79,7 @@ ipython_config.py
 !/output/.gitkeep
 *.log
 *.json
+!langgraph.json
 
 # Google Cloud credentials
 service-account.json
