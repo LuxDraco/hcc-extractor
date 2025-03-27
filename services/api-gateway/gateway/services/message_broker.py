@@ -12,7 +12,7 @@ import uuid
 from typing import Any, Dict, Optional
 
 import structlog
-from aio_pika import Message, DeliveryMode
+from aio_pika import Message, DeliveryMode, ExchangeType
 from fastapi import Depends
 
 from gateway.core.config import settings
@@ -46,7 +46,7 @@ class MessageBrokerService:
         # Declare exchange
         self.exchange = await self.channel.declare_exchange(
             self.exchange_name,
-            type="topic",
+            type=ExchangeType.FANOUT,
             durable=True,
         )
 
@@ -101,7 +101,7 @@ class MessageBrokerService:
 
             # Add metadata
             message["message_id"] = str(uuid.uuid4())
-            message["timestamp"] = time.time()
+            # message["timestamp"] = time.time()
             message["message_type"] = message_type
 
             # Create message
@@ -112,7 +112,7 @@ class MessageBrokerService:
                 delivery_mode=DeliveryMode.PERSISTENT,
                 message_id=message["message_id"],
                 type=message_type,
-                timestamp=int(message["timestamp"]),
+                # timestamp=int(message["timestamp"]),
                 priority=priority,
                 app_id=settings.PROJECT_NAME,
             )
@@ -182,14 +182,15 @@ class MessageBrokerService:
             "storage_path": storage_path,
             "storage_type": storage_type,
             "content_type": content_type,
-            "document_content": document_content,
+            # "document_content": document_content,
         }
 
         await self.publish_message(
             routing_key="document.uploaded",
             message=message,
             message_type="document.uploaded",
-            priority=5 if priority else None,
+            # priority=5 if priority else None,
+            priority=None,
         )
 
     async def publish_extraction_completed(
