@@ -5,12 +5,12 @@ This module defines the settings and configuration parameters for the API Gatewa
 It uses Pydantic's Settings management to load configuration from environment variables.
 """
 
-import os
 import secrets
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from dotenv import load_dotenv
 from pydantic import (
     AnyHttpUrl,
     Field,
@@ -19,6 +19,8 @@ from pydantic import (
     field_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+load_dotenv()
 
 
 class LogLevel(str, Enum):
@@ -76,7 +78,8 @@ class Settings(BaseSettings):
     RABBITMQ_HOST: str = "localhost"
     RABBITMQ_PORT: int = 5672
     RABBITMQ_USER: str = "guest"
-    RABBITMQ_PASSWORD: SecretStr = Field(default=SecretStr("guest"))
+    # RABBITMQ_PASSWORD: SecretStr = Field(default=SecretStr("guest"))
+    RABBITMQ_PASSWORD: str = "guest"
     RABBITMQ_VHOST: str = "/"
     RABBITMQ_QUEUE: str = "document-events"
     RABBITMQ_EXCHANGE: str = "hcc-extractor"

@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import structlog
 from aio_pika import Channel
+from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from opentelemetry import trace
@@ -36,6 +37,8 @@ logger = structlog.get_logger(__name__)
 
 # Define HCC codes path
 _HCC_CODES_PATH: Optional[Path] = None
+
+load_dotenv()
 
 
 def get_hcc_codes_path() -> Path:
@@ -157,10 +160,8 @@ async def get_rabbitmq_channel() -> AsyncGenerator[Channel, None]:
         # Create connection string
         # Create connection string
 
-        # vhost = settings.RABBITMQ_VHOST if settings.RABBITMQ_VHOST != "/" else "%2F"
-        # connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/{vhost}"
-        # connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/"
-        connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
+        vhost = settings.RABBITMQ_VHOST.replace("/", "%2F")
+        connection_string = f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/{vhost}"
 
         logger.info(f"Connecting to RabbitMQ using {connection_string}")
 
