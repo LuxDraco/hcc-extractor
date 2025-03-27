@@ -28,6 +28,23 @@ class Condition(BaseModel):
         default_factory=dict, description="Additional metadata about the condition"
     )
 
+    @property
+    def icd_code_no_dot(self) -> Optional[str]:
+        """Get the ICD code without the dot."""
+        if self.icd_code:
+            return self.icd_code.replace(".", "")
+        return None
+
+    @property
+    def is_hcc_relevant(self) -> bool:
+        """Get whether this condition is HCC-relevant."""
+        return self.metadata.get("is_hcc_relevant", False)
+
+    @property
+    def status(self) -> Optional[str]:
+        """Get the status of the condition."""
+        return self.metadata.get("status")
+
 
 class ClinicalDocument(BaseModel):
     """Representation of a clinical document."""
@@ -53,6 +70,21 @@ class ExtractionResult(BaseModel):
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata about the extraction process"
     )
+
+    @property
+    def total_conditions(self) -> int:
+        """Get the total number of conditions."""
+        return len(self.conditions)
+
+    @property
+    def hcc_relevant_conditions(self) -> List[Condition]:
+        """Get only the HCC-relevant conditions."""
+        return [c for c in self.conditions if c.is_hcc_relevant]
+
+    @property
+    def hcc_relevant_count(self) -> int:
+        """Get the count of HCC-relevant conditions."""
+        return len(self.hcc_relevant_conditions)
 
 
 class ProcessingStatus(BaseModel):
