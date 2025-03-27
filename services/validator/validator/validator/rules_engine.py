@@ -7,7 +7,7 @@ and evaluating validation rules on medical conditions.
 
 from typing import Dict, List, Any, Callable
 
-from app.models.condition import Condition, ValidationRule
+from validator.models.condition import Condition, ValidationRule
 
 
 class RulesEngine:

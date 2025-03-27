@@ -6,13 +6,14 @@ properly identified as HCC-relevant, applying business rules, and ensuring
 compliant documentation.
 """
 
-from app.data.code_repository import CodeRepository
-from app.models.condition import (
+from validator.data.code_repository import CodeRepository
+from validator.models.condition import (
     AnalysisResult,
     ValidationResult,
     ValidatedCondition,
+    ValidationRule
 )
-from app.validator.rules_engine import RulesEngine
+from validator.validator.rules_engine import RulesEngine
 
 
 class HCCValidator:
