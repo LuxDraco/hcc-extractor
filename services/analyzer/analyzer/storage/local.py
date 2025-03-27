@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any, Union
 
-from app.models.condition import AnalysisResult
+from analyzer.models.condition import AnalysisResult
 
 
 class LocalStorageManager:
