@@ -3,6 +3,7 @@ name = "hcc-validator-service"
 version = "0.1.0"
 description = "Validation service for HCC conditions from clinical notes"
 authors = ["黒い龍 <ponchogcja@gmail.com>"]
+readme = "README.md"
 packages = [
     { include = "validator" },
 ]
