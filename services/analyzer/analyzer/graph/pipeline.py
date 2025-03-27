@@ -12,15 +12,15 @@ from typing import Dict, List, Any, Union
 import pandas as pd
 from langgraph.graph import StateGraph, END
 
-from app.graph.nodes import (
+from analyzer.graph.nodes import (
     load_hcc_codes,
     prepare_conditions,
     determine_hcc_relevance,
     enrichment_with_llm,
     finalize_analysis,
 )
-from app.graph.state import GraphState
-from app.models.condition import Condition, AnalysisResult
+from analyzer.graph.state import GraphState
+from analyzer.models.condition import Condition, AnalysisResult
 
 
 class AnalysisPipeline:

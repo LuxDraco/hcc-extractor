@@ -5,8 +5,8 @@ This module defines the individual processing nodes used in the analysis
 workflow graph, including HCC relevance determination and verification.
 """
 
-from app.graph.state import GraphState
-from app.llm.client import GeminiClient
+from analyzer.graph.state import GraphState
+from analyzer.llm.client import GeminiClient
 
 
 def load_hcc_codes(state: GraphState) -> GraphState:

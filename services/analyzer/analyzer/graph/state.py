@@ -7,7 +7,7 @@ for the HCC analysis workflow graph.
 
 from typing import Dict, List, Any, TypedDict
 
-from app.models.condition import Condition
+from analyzer.models.condition import Condition
 
 
 class GraphState(TypedDict):
