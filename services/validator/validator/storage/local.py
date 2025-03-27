@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any, Union
 
-from app.models.condition import ValidationResult
+from validator.models.condition import ValidationResult
 
 
 class LocalStorageManager:
