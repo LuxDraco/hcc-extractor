@@ -1,26 +1,32 @@
 """
-Gemini 1.5 client for interacting with the Vertex AI API.
+LangChain-based client for interacting with Vertex AI Gemini models.
 """
 
 import os
-import json
-from typing import Dict, List, Any, Optional
+from typing import List, Dict, Any, Optional
 
-from google.cloud import aiplatform
-from vertexai.generative_models import GenerativeModel, GenerationConfig
+import vertexai
+from dotenv import load_dotenv
+from langchain_google_vertexai import ChatVertexAI
+from langchain.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+from langchain.schema.output_parser import StrOutputParser
+from langchain.schema.runnable import RunnablePassthrough
+
+load_dotenv()
 
 
-class GeminiClient:
-    """Client for interacting with Vertex AI Gemini 1.5 Flash model."""
+class LangChainGeminiClient:
+    """Client for interacting with Vertex AI Gemini models using LangChain."""
 
     def __init__(
             self,
             project_id: Optional[str] = None,
             location: str = "us-central1",
-            model_name: str = "gemini-1.5-flash",
+            model_name: str = "gemini-2.0-flash",
     ) -> None:
         """
-        Initialize the Gemini client.
+        Initialize the LangChain Gemini client.
 
         Args:
             project_id: Google Cloud project ID
@@ -31,15 +37,21 @@ class GeminiClient:
         self.location = location or os.environ.get("VERTEX_AI_LOCATION", "us-central1")
         self.model_name = model_name
 
-        # Initialize Vertex AI
-        aiplatform.init(project=self.project_id, location=self.location)
+        vertexai.init(
+            project=self.project_id,
+            location=self.location,
+        )
 
-        # Initialize the model
-        self.model = GenerativeModel(self.model_name)
+        # Initialize the LangChain model
+        self.llm = ChatVertexAI(
+            model_name=self.model_name,
+            temperature=0.1,
+            max_tokens=None,
+        )
 
     def extract_conditions(self, clinical_text: str) -> List[Dict[str, Any]]:
         """
-        Extract conditions from clinical text using Gemini.
+        Extract conditions from clinical text using Gemini via LangChain.
 
         Args:
             clinical_text: Clinical text to analyze
@@ -47,43 +59,9 @@ class GeminiClient:
         Returns:
             List of extracted conditions
         """
-        # Create generation config
-        generation_config = GenerationConfig(
-            temperature=0.1,
-            top_p=0.95,
-            top_k=40,
-            max_output_tokens=1024,
-        )
-
-        # Create prompt for condition extraction
-        prompt = self._create_extraction_prompt(clinical_text)
-
-        # Generate response
-        response = self.model.generate_content(
-            prompt,
-            generation_config=generation_config,
-        )
-
-        # Parse and return the results
-        try:
-            # Extract JSON from response
-            results = json.loads(response.text)
-            return results.get("conditions", [])
-        except (json.JSONDecodeError, AttributeError):
-            # Fallback in case of parsing error
-            return []
-
-    def _create_extraction_prompt(self, clinical_text: str) -> str:
-        """
-        Create a prompt for condition extraction.
-
-        Args:
-            clinical_text: Clinical text to analyze
-
-        Returns:
-            Prompt for the Gemini model
-        """
-        prompt = f"""
+        # Create the extraction chain
+        extraction_prompt = ChatPromptTemplate.from_template(
+            """
             You are a medical information extraction expert specialized in analyzing clinical progress notes.
             
             I will provide you with a clinical note. Your task is to:
@@ -92,28 +70,71 @@ class GeminiClient:
             2. Extract all medical conditions listed in this section
             3. For each condition, extract:
                 - The condition name
-                - The ICD-10 code (if present)
-                - The description associated with the ICD-10 code (if present)
+                - The ICD-10 code WITH the dot/period (e.g., "E11.65")
+                - The ICD-10 code WITHOUT the dot/period (e.g., "E1165")
+                - The description associated with the ICD-10 code
                 - Any additional details about the condition
+                - The status of the condition (e.g., "Stable", "Worsening", "Improving", etc.)
             
             Return the results as a structured JSON object with this exact format:
+            ```json
             {{
                 "conditions": [
-                {{
-                    "id": "cond-1",
-                    "name": "Condition name",
-                    "icd_code": "ICD-10 code",
-                    "icd_description": "ICD code description",
-                    "details": "Additional details about condition",
-                    "confidence": 0.95  // Your confidence in the extraction accuracy (0.0 to 1.0)
-                }},
-                // Additional conditions...
+                    {{
+                        "id": "cond-1",
+                        "name": "Condition name",
+                        "icd_code": "ICD-10 code with dot (e.g., E11.65)",
+                        "icd_code_no_dot": "ICD-10 code without dot (e.g., E1165)",
+                        "icd_description": "ICD code description",
+                        "details": "Additional details about condition",
+                        "status": "Status of the condition",
+                        "confidence": 0.95
+                    }}
                 ]
             }}
+            ```
             
             Focus only on the Assessment/Plan section. Ensure the output is valid JSON. Only include information that is explicitly mentioned in the text.
             
             Here is the clinical note:
             {clinical_text}
             """
-        return prompt
+        )
+
+        # Create the extraction chain with JSON output parsing
+        json_parser = JsonOutputParser()
+
+        extraction_chain = (
+                {"clinical_text": RunnablePassthrough()}
+                | extraction_prompt
+                | self.llm
+                | StrOutputParser()
+                | json_parser
+        )
+
+        # Run the chain and extract conditions
+        try:
+            results = extraction_chain.invoke(clinical_text)
+            return results.get("conditions", [])
+        except Exception as e:
+            print(f"Error extracting conditions: {e}")
+            # Fallback in case of parsing error
+            return []
+
+    def get_hcc_relevance(self, conditions: List[Dict[str, Any]], hcc_codes: List[str]) -> List[Dict[str, Any]]:
+        """
+        Determine HCC relevance for extracted conditions.
+
+        Args:
+            conditions: List of extracted conditions
+            hcc_codes: List of HCC-relevant codes (without dots)
+
+        Returns:
+            Conditions with added HCC relevance flag
+        """
+        for condition in conditions:
+            # Check if the condition's ICD code (without dot) is in the HCC codes list
+            is_hcc_relevant = condition.get("icd_code_no_dot", "") in hcc_codes
+            condition["is_hcc_relevant"] = is_hcc_relevant
+
+        return conditions
