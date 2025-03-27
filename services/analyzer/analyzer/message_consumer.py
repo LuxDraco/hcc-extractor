@@ -15,12 +15,13 @@ from typing import Dict, Any, Optional, List
 import aio_pika
 from aio_pika import Message, DeliveryMode, ExchangeType
 from aio_pika.abc import AbstractIncomingMessage
+from dotenv import load_dotenv
 
+from analyzer.db.database_integration import db_updater
 from analyzer.db.models.document import ProcessingStatus
 from analyzer.graph.pipeline import AnalysisPipeline
-from analyzer.models.condition import Condition, AnalysisResult
+from analyzer.models.condition import Condition
 from analyzer.storage.local import LocalStorageManager
-from analyzer.db.database_integration import db_updater
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +30,8 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 class MessageConsumer:
@@ -40,7 +43,7 @@ class MessageConsumer:
             port: int = 5672,
             username: str = "guest",
             password: str = "guest",
-            queue: str = "document-events",
+            queue: str = "analyzer-events",
             exchange: str = "hcc-extractor",
             virtual_host: str = "/",
             input_dir: str = "./data",
@@ -92,16 +95,16 @@ class MessageConsumer:
         """
         try:
             # Create connection string
-            #connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{self.virtual_host}"
-            connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
+            host = self.virtual_host.replace("/", "%2F")
+            connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{host}"
+            logging.info(f"Connecting to RabbitMQ at {connection_string}")
 
             # Connect to RabbitMQ
             self.connection = await aio_pika.connect_robust(connection_string)
 
             # Create channel
             self.channel = await self.connection.channel()
-            await self.channel.set_qos(prefetch_count=1)
-
+            await self.channel.set_qos(prefetch_count=1, timeout=360, all_channels=True)
             # Declare exchange
             self.exchange = await self.channel.declare_exchange(
                 self.exchange_name,
@@ -117,6 +120,7 @@ class MessageConsumer:
 
             # Bind queue to exchange with routing keys for extraction completed messages
             await self.queue.bind(self.exchange, routing_key="document.extraction.completed")
+            # await self.queue.bind(self.exchange, routing_key="#")
 
             logger.info(f"Connected to RabbitMQ at {self.host}:{self.port}")
 
@@ -167,7 +171,7 @@ class MessageConsumer:
                 message_type = content.get("message_type")
 
                 # Handle different message types
-                if message_type == "extraction.completed":
+                if message_type == "document.extraction.completed":
                     await self._handle_extraction_completed(content)
                 else:
                     logger.warning(f"Unknown message type: {message_type}")
@@ -397,7 +401,7 @@ async def run_consumer():
     port = int(os.environ.get("RABBITMQ_PORT", "5672"))
     username = os.environ.get("RABBITMQ_USER", "guest")
     password = os.environ.get("RABBITMQ_PASSWORD", "guest")
-    queue = os.environ.get("RABBITMQ_QUEUE", "document-events")
+    queue = os.environ.get("RABBITMQ_QUEUE", "analyzer-events")
     exchange = os.environ.get("RABBITMQ_EXCHANGE", "hcc-extractor")
     virtual_host = os.environ.get("RABBITMQ_VHOST", "/")
     input_dir = os.environ.get("INPUT_DIR", "./data")
