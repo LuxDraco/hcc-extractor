@@ -4,18 +4,21 @@ Database integration for the Analyzer service.
 This module contains the necessary functions to update the state of documents
 in the database as they progress through the processing pipeline.
 """
+import logging
+import os
+import uuid
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, update
 from sqlalchemy.orm import sessionmaker
-import os
-import logging
-import uuid
 
 from analyzer.db.models.document import ProcessingStatus
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 class DatabaseUpdater:
