@@ -8,7 +8,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field
+from pydantic.v1 import validator
 
 
 class UserBase(BaseModel):
@@ -23,7 +24,7 @@ class UserCreate(UserBase):
     password: str = Field(..., description="User password")
 
     @validator("password")
-    def password_min_length(cls, v: str) -> str:
+    def password_min_length(self, v: str) -> str:
         """Validate that the password meets minimum length requirements."""
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters long")
@@ -38,7 +39,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = Field(None, description="Whether the user is active")
 
     @validator("password")
-    def password_min_length(cls, v: Optional[str]) -> Optional[str]:
+    def password_min_length(self, v: Optional[str]) -> Optional[str]:
         """Validate that the password meets minimum length requirements if provided."""
         if v is not None and len(v) < 8:
             raise ValueError("Password must be at least 8 characters long")
