@@ -191,7 +191,7 @@ services:
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
       - STORAGE_TYPE=local
-      - WATCH_PATH=/app/data
+      - WATCH_PATH=/app/data/pn
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_DEFAULT_USER=hccuser
@@ -199,9 +199,14 @@ services:
       - RABBITMQ_USER=hccuser
       - RABBITMQ_PASSWORD=hccpass
       - RABBITMQ_VHOST=/
-      - RABBITMQ_QUEUE=document-events
+      - RABBITMQ_QUEUE=storage-watcher-events
       - WATCH_INTERVAL=10.0
       - FILE_PATTERNS=*.txt,*
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=hcc_extractor
     depends_on:
       rabbitmq:
         condition: service_healthy
