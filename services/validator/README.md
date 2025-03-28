@@ -1,36 +1,89 @@
 # HCC Validator Service
 
+![Python: 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)
+![Testing: Pytest](https://img.shields.io/badge/Testing-Pytest-green.svg)
+![Status: Production Ready](https://img.shields.io/badge/Status-Production_Ready-green.svg)
+
 ## Overview
 
 The HCC Validator Service is a critical component of the HCC Extractor system, responsible for validating the HCC-relevant conditions identified by the Analyzer service. This service ensures that the identified conditions comply with business rules and documentation requirements for HCC submission.
 
-## Features
+## Core Functionality
 
-- Consumes analysis results from the message queue (RabbitMQ)
-- Validates HCC-relevant conditions against compliance rules
-- Applies business rules to ensure proper documentation
-- Verifies that ICD-10 codes are valid and match their descriptions
-- Ensures sufficient confidence scores for HCC determinations
-- Publishes validation results to the message queue for further processing
-- Supports both batch processing and continuous message-based processing
+- **Rule-based Validation**: Applies configurable business rules to conditions
+- **Compliance Verification**: Ensures proper documentation for HCC submission
+- **ICD-10 Code Validation**: Verifies that ICD-10 codes are valid and match their descriptions
+- **Confidence Threshold Enforcement**: Validates sufficient confidence scores for HCC determinations
+- **Event-Driven Processing**: Consumes analysis results from RabbitMQ and publishes validation results
 
 ## Architecture
 
 The service follows a modular architecture with the following components:
 
-- **Message Consumer**: Listens for analysis completed events and triggers validation
-- **Rules Engine**: Applies configurable business rules to conditions
-- **Code Repository**: Provides access to ICD-10 and HCC reference data
-- **Storage Manager**: Handles file operations for input and output
+```
+┌───────────────────┐       ┌───────────────────┐       ┌─────────────────┐
+│                   │       │                   │       │                 │
+│   Message Queue   │──────▶│  Validator Core   │──────▶│  Results Store  │
+│    (RabbitMQ)     │       │                   │       │                 │
+│                   │       │                   │       │                 │
+└───────────────────┘       └─────────┬─────────┘       └─────────────────┘
+                                      │
+                                      │
+                                      ▼
+                            ┌───────────────────┐
+                            │                   │
+                            │  Code Repository  │
+                            │    (HCC Codes)    │
+                            │                   │
+                            └───────────────────┘
+```
 
-## Prerequisites
+## Key Components
+
+### 1. Rules Engine
+
+The Rules Engine (`validator/validator/rules_engine.py`) is a flexible framework for applying business rules to conditions. It supports:
+
+- Dynamic rule registration
+- Rule prioritization
+- Exception handling
+- Detailed rule evaluation results
+
+### 2. HCC Validator
+
+The HCC Validator (`validator/validator/hcc_validator.py`) combines the Rules Engine with domain-specific logic to:
+
+- Validate HCC relevance determinations
+- Apply compliance rules
+- Generate validation reports
+- Track metrics for validation
+
+### 3. Code Repository
+
+The Code Repository (`validator/data/code_repository.py`) provides:
+
+- Fast lookup of ICD-10 and HCC codes
+- Code-description matching
+- HCC category information
+- Validation utilities for code formatting
+
+### 4. Message Consumer
+
+The Message Consumer (`validator/message_consumer.py`) handles:
+
+- RabbitMQ message consumption
+- Processing of analysis results
+- Database status updates
+- Publishing of validation results
+
+## Setup & Installation
+
+### Prerequisites
 
 - Python 3.12+
 - Poetry for dependency management
 - RabbitMQ for message queue
 - HCC codes reference data in CSV format
-
-## Installation
 
 ### Using Poetry
 
@@ -39,16 +92,35 @@ The service follows a modular architecture with the following components:
 cd services/validator
 poetry install
 
-# Set environment variables
-export RABBITMQ_HOST=localhost
-export RABBITMQ_PORT=5672
-export RABBITMQ_USER=guest
-export RABBITMQ_PASSWORD=guest
-export RABBITMQ_QUEUE=document-events
-export RABBITMQ_EXCHANGE=hcc-extractor
-export INPUT_DIR=./data
-export OUTPUT_DIR=./output
-export HCC_CODES_PATH=./data/HCC_relevant_codes.csv
+# Create and configure the .env file
+cat > .env << EOF
+# RabbitMQ Configuration
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_DEFAULT_USER=hccuser
+RABBITMQ_DEFAULT_PASS=hccpass
+RABBITMQ_USER=hccuser
+RABBITMQ_PASSWORD=hccpass
+RABBITMQ_VHOST=/
+RABBITMQ_QUEUE=validator-events
+
+# Database Configuration
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=hcc_extractor
+
+# Google Cloud Configuration
+GOOGLE_APPLICATION_CREDENTIALS=../../service-account.json
+VERTEX_AI_PROJECT_ID=guacamayo-tech
+VERTEX_AI_LOCATION=us-central1
+
+# Path Configuration
+INPUT_DIR=../../data/pn
+OUTPUT_DIR=../../output
+HCC_CODES_PATH=../../data/HCC_relevant_codes.csv
+EOF
 ```
 
 ## Usage
@@ -90,9 +162,25 @@ docker build -t hcc-validator-service .
 # Run the container
 docker run -v /path/to/data:/app/data \
   -v /path/to/output:/app/output \
+  -v /path/to/service-account.json:/app/credentials.json \
   -e RABBITMQ_HOST=rabbitmq \
-  -e RABBITMQ_USER=guest \
-  -e RABBITMQ_PASSWORD=guest \
+  -e RABBITMQ_PORT=5672 \
+  -e RABBITMQ_DEFAULT_USER=hccuser \
+  -e RABBITMQ_DEFAULT_PASS=hccpass \
+  -e RABBITMQ_USER=hccuser \
+  -e RABBITMQ_PASSWORD=hccpass \
+  -e RABBITMQ_VHOST=/ \
+  -e RABBITMQ_QUEUE=validator-events \
+  -e POSTGRES_HOST=postgres \
+  -e POSTGRES_PORT=5432 \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=hcc_extractor \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json \
+  -e VERTEX_AI_PROJECT_ID=guacamayo-tech \
+  -e VERTEX_AI_LOCATION=us-central1 \
+  -e INPUT_DIR=/app/data/pn \
+  -e OUTPUT_DIR=/app/output \
   -e HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv \
   hcc-validator-service
 ```
@@ -104,6 +192,31 @@ docker run -v /path/to/data:/app/data \
 3. **Rules Application**: The analysis results are validated using the Rules Engine
 4. **Compliance Determination**: Conditions are validated for compliance with business rules
 5. **Result Publishing**: Validation results are saved and a message is published for the next service
+
+## Testing
+
+The validator service includes comprehensive unit tests:
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=validator
+
+# Run specific test module
+pytest tests/test_validator.py
+```
+
+### Key Test Areas
+
+The test suite covers:
+
+- Rules Engine functionality
+- HCC Validator logic
+- Code Repository operations
+- Message processing
+- Compliance determination
 
 ## Validation Rules
 
@@ -132,3 +245,48 @@ The validator applies several business rules to each condition:
 
 4. **Memory Usage**:
    - For large datasets, monitor memory usage as loading many HCC codes can be memory-intensive
+
+## Development
+
+### Adding New Validation Rules
+
+New validation rules can be added to the `_register_rules` method in `HCCValidator`:
+
+```python
+# Example: Adding a new rule for minimum condition description length
+self.rules_engine.register_rule(
+    "description_length",
+    lambda condition: condition.name and len(condition.name) >= 10,
+    "Condition description must be at least 10 characters"
+)
+```
+
+### Project Structure
+
+```
+validator/
+├── __init__.py
+├── main.py                 # Entry point
+├── message_consumer.py     # RabbitMQ consumer
+├── data/                   # Data access components
+│   ├── __init__.py
+│   └── code_repository.py  # HCC code repository
+├── models/                 # Data models
+│   ├── __init__.py
+│   └── condition.py        # Condition and result models
+├── storage/                # Storage operations
+│   ├── __init__.py
+│   └── local.py            # Local file operations
+├── validator/              # Validation logic
+│   ├── __init__.py
+│   ├── rules_engine.py     # Generic rules engine
+│   └── hcc_validator.py    # HCC-specific validation
+├── db/                     # Database integration
+│   ├── __init__.py
+│   ├── base.py             # Base model
+│   ├── models/             # Database models
+│   └── database_integration.py # DB update utilities
+└── tests/                  # Test suite
+    ├── __init__.py
+    └── test_validator.py   # Validator tests
+```
