@@ -1,204 +1,352 @@
-# HCC Extractor
+# HCC Extractor Service
 
-An AI-powered system to extract HCC-relevant medical conditions from clinical progress notes using LangGraph and Vertex AI Gemini.
+![Python: 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)
+![Testing: Pytest](https://img.shields.io/badge/Testing-Pytest-green.svg)
+![Status: Production Ready](https://img.shields.io/badge/Status-Production_Ready-green.svg)
 
-## 📋 Overview
+## Overview
 
-HCC Extractor is a Python-based solution that:
+The HCC Extractor Service is the cornerstone of the HCC Extractor system, responsible for parsing clinical progress notes and extracting medical conditions with their associated ICD-10 codes. This service employs advanced NLP techniques through Google's Vertex AI Gemini models and LangGraph to deliver precise, structured extraction results.
 
-1. Processes clinical progress notes to extract medical conditions and their ICD-10 codes
-2. Determines which conditions are HCC-relevant by cross-referencing with a provided CSV file
-3. Returns structured results for further analysis or reporting
+## Core Functionality
 
-The system uses Vertex AI Gemini models through LangChain and orchestrates the extraction workflow using LangGraph, providing a reliable and maintainable solution for clinical document analysis.
+- **Clinical Note Parsing**: Advanced parsing of structured and unstructured clinical notes
+- **Assessment/Plan Extraction**: Intelligent identification of the assessment/plan section
+- **Condition & ICD Code Extraction**: Extraction of conditions and their associated ICD-10 codes
+- **LangGraph Workflow**: Orchestrated extraction pipeline for consistent processing
+- **Document Context Capture**: Extraction of patient demographics and document metadata
+- **HCC Code Matching**: Initial HCC relevance determination through code matching
 
-## 🚀 Features
+## Architecture
 
-- **AI-Powered Extraction**: Uses Vertex AI Gemini models for accurate condition and code extraction
-- **LangGraph Workflow**: Structured pipeline for processing clinical documents
-- **ICD Code Handling**: Extracts and normalizes ICD-10 codes (with and without dots)
-- **HCC Relevance Evaluation**: Identifies which conditions are HCC-relevant
-- **Flexible Processing**: Works with single files, batches, or via a message queue
-- **Error Handling**: Robust error handling and reporting
-- **Containerized**: Docker support for easy deployment
+The service follows a multilayered architecture with the following components:
 
-## 📦 Installation
+```
+┌───────────────────┐       ┌───────────────────┐       ┌───────────────────┐
+│                   │       │                   │       │                   │
+│   Document Source │──────▶│  Extractor Core   │──────▶│   Storage Sink    │
+│  (Files/Messages) │       │                   │       │ (Files/Messages)  │
+│                   │       │                   │       │                   │
+└───────────────────┘       └─────────┬─────────┘       └───────────────────┘
+                                      │
+                                      │
+          ┌─────────────────┐         │         ┌───────────────────┐
+          │                 │         │         │                   │
+          │   LangGraph     │◀────────┴────────▶│   Vertex AI      │
+          │   Pipeline      │                   │   Gemini Models  │
+          │                 │                   │                   │
+          └─────────────────┘                   └───────────────────┘
+```
+
+## Key Components
+
+### 1. Document Parser
+
+The Document Parser (`extractor/utils/document_parser.py`) extracts structured information:
+
+- Patient demographics (name, age, gender, DOB)
+- Document metadata (provider, date, chief complaint)
+- Document structure and sectioning
+
+### 2. Document Processor
+
+The Document Processor (`extractor/extractor/processor.py`) orchestrates the extraction:
+
+- Delegates to LangGraph or direct LLM extraction
+- Manages condition extraction
+- Converts raw extraction data to model objects
+- Handles error conditions and fallbacks
+
+### 3. LangGraph Pipeline
+
+The LangGraph Pipeline (`extractor/graph/pipeline.py`) provides:
+
+- Step-by-step extraction workflow
+- State management between steps
+- Error handling and recovery
+- Extensibility for future enhancements
+
+### 4. LLM Client
+
+The LLM Client (`extractor/llm/client.py`) interfaces with Vertex AI:
+
+- Crafts effective prompts for medical extraction
+- Manages API communication with Vertex AI
+- Processes and structures LLM responses
+- Ensures consistent response format
+
+### 5. HCC Code Manager
+
+The HCC Code Manager (`extractor/utils/hcc_utils.py`) provides:
+
+- Fast lookups of HCC-relevant codes
+- Code normalization (with/without dots)
+- Reference data for validation
+- Performance optimization for large code sets
+
+## Setup & Installation
 
 ### Prerequisites
 
 - Python 3.12+
 - Poetry for dependency management
-- Google Cloud service account with Vertex AI access
-- Docker (optional)
+- RabbitMQ for message queue
+- Google Cloud Platform account with Vertex AI access
+- Service account JSON key file with Vertex AI permissions
+- HCC codes reference data in CSV format
 
 ### Using Poetry
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/hcc-extractor.git
-cd hcc-extractor
-
 # Install dependencies
+cd services/extractor
 poetry install
 
-# Set environment variables
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-export VERTEX_AI_PROJECT_ID=your-project-id
-export VERTEX_AI_LOCATION=us-central1
+# Create and configure the .env file
+cat > .env << EOF
+# RabbitMQ Configuration
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_DEFAULT_USER=hccuser
+RABBITMQ_DEFAULT_PASS=hccpass
+RABBITMQ_USER=hccuser
+RABBITMQ_PASSWORD=hccpass
+RABBITMQ_VHOST=/
+RABBITMQ_QUEUE=extractor-events
+
+# Database Configuration
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=hcc_extractor
+
+# Google Cloud Configuration
+GOOGLE_APPLICATION_CREDENTIALS=../../service-account.json
+VERTEX_AI_PROJECT_ID=guacamayo-tech
+VERTEX_AI_LOCATION=us-central1
+
+# Path Configuration
+INPUT_DIR=../../data/pn
+OUTPUT_DIR=../../output
+HCC_CODES_PATH=../../data/HCC_relevant_codes.csv
+EOF
 ```
 
-### Using Docker
+## Usage
+
+The service can run in three modes:
+
+### Batch Mode
+
+Process all documents in the input directory:
 
 ```bash
-# Build the Docker image
-docker build -t hcc-extractor .
+python -m main --mode batch
+```
+
+### Consumer Mode
+
+Listen for messages on RabbitMQ:
+
+```bash
+python -m main --mode consumer
+```
+
+### Both Modes
+
+First process local files, then start listening for messages:
+
+```bash
+python -m main --mode both
+```
+
+### Single File Mode
+
+Process a single file:
+
+```bash
+python -m main --mode file --file path/to/progress_note.txt
+```
+
+## Docker Deployment
+
+Build and run using Docker:
+
+```bash
+# Build the image
+docker build -t hcc-extractor-service .
 
 # Run the container
 docker run -v /path/to/data:/app/data \
   -v /path/to/output:/app/output \
   -v /path/to/service-account.json:/app/credentials.json \
+  -e RABBITMQ_HOST=rabbitmq \
+  -e RABBITMQ_PORT=5672 \
+  -e RABBITMQ_DEFAULT_USER=hccuser \
+  -e RABBITMQ_DEFAULT_PASS=hccpass \
+  -e RABBITMQ_USER=hccuser \
+  -e RABBITMQ_PASSWORD=hccpass \
+  -e RABBITMQ_VHOST=/ \
+  -e RABBITMQ_QUEUE=extractor-events \
+  -e POSTGRES_HOST=postgres \
+  -e POSTGRES_PORT=5432 \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=hcc_extractor \
   -e GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json \
-  -e VERTEX_AI_PROJECT_ID=your-project-id \
+  -e VERTEX_AI_PROJECT_ID=guacamayo-tech \
   -e VERTEX_AI_LOCATION=us-central1 \
-  hcc-extractor
+  -e INPUT_DIR=/app/data/pn \
+  -e OUTPUT_DIR=/app/output \
+  -e HCC_CODES_PATH=/app/data/HCC_relevant_codes.csv \
+  -e USE_LANGGRAPH=1 \
+  hcc-extractor-service
 ```
 
-## 🧑‍💻 Usage
+## Message Flow
 
-### Processing Files
+1. **Document Uploaded**: The API Gateway or Storage Watcher publishes a `document.uploaded` message to RabbitMQ
+2. **Message Consumption**: The Extractor service consumes the message and retrieves the document
+3. **Extraction Process**: The document is processed by the extraction pipeline
+4. **Result Publishing**: Extraction results are saved and a message is published for the Analyzer service
+
+## Extraction Process
+
+The extraction follows these steps:
+
+1. **Document Parsing**: Initial metadata and structure extraction
+2. **Assessment/Plan Identification**: Locating the section with conditions
+3. **LLM Processing**: Using Vertex AI Gemini to extract conditions and codes
+4. **HCC Code Lookup**: Cross-referencing extracted codes with HCC reference
+5. **Result Formatting**: Creating structured extraction results
+
+## Testing
+
+The extractor service includes comprehensive unit tests:
 
 ```bash
-# Process all files in the data directory
-python main.py --mode batch
+# Run all tests
+pytest
 
-# Process a single file
-python main.py --mode file --file ./data/progress_note.txt
+# Run with coverage
+pytest --cov=extractor
 
-# Run the demo script
-python run_extraction.py
+# Run specific test module
+pytest tests/test_extractor.py
 ```
 
-### Using the LangGraph Development Web App
+### Key Test Areas
 
-```bash
-# Start the LangGraph development web app
-langgraph dev
-```
+The test suite covers:
 
-This will open a browser window with the LangGraph development interface, allowing you to visualize and debug the extraction workflow.
+- Document parsing functionality
+- Extraction pipeline flow
+- LLM client integration
+- HCC code management
+- Message handling
 
-## 🏗️ Architecture
+## Example Output
 
-### Component Overview
+A typical extraction result looks like:
 
-- **DocumentProcessor**: Coordinates the extraction process
-- **ExtractionPipeline**: LangGraph workflow for condition extraction
-- **LangChainGeminiClient**: Interfaces with Vertex AI Gemini models
-- **HCCCodeManager**: Manages HCC-relevant code lookup
-
-### LangGraph Workflow
-
-The extraction workflow consists of the following nodes:
-
-1. **preprocess**: Extracts the Assessment/Plan section from the document
-2. **extract_conditions**: Uses Gemini to extract conditions and codes
-3. **load_hcc_codes**: Loads HCC-relevant codes from the CSV file
-4. **determine_hcc_relevance**: Determines which conditions are HCC-relevant
-5. **convert_to_model_objects**: Converts raw data to Condition objects
-6. **create_result**: Creates the final extraction result
-
-## 📄 Example
-
-Input progress note:
-```
-Assessment / Plan
-
-1. Gastroesophageal reflux disease -
-   Stable
-   Continue the antacids
-   F/U in 3 months
-   K21.9: Gastro-esophageal reflux disease without esophagitis
-
-2. Hyperglycemia due to type 2 diabetes mellitus -
-   Worsening
-   Continue Metformin1000 mg BID and Glimepiride 8 mg
-   E11.65: Type 2 diabetes mellitus with hyperglycemia
-```
-
-Output (simplified):
 ```json
 {
-  "document_id": "doc-sample_progress_note",
+  "document_id": "doc-progress_note_123",
   "conditions": [
     {
       "id": "cond-1",
-      "name": "Gastroesophageal reflux disease",
-      "icd_code": "K21.9",
-      "icd_description": "Gastro-esophageal reflux disease without esophagitis",
-      "details": "Stable\nContinue the antacids\nF/U in 3 months",
+      "name": "Type 2 diabetes mellitus",
+      "icd_code": "E11.9",
+      "icd_description": "Type 2 diabetes mellitus without complications",
+      "details": "Stable\nContinue Metformin 1000mg twice daily",
+      "confidence": 0.95,
       "metadata": {
-        "extraction_method": "langgraph_llm",
         "status": "Stable",
-        "icd_code_no_dot": "K219",
-        "is_hcc_relevant": false
+        "extraction_method": "langgraph_llm",
+        "icd_code_no_dot": "E119",
+        "is_hcc_relevant": true
       }
     },
     {
       "id": "cond-2",
-      "name": "Hyperglycemia due to type 2 diabetes mellitus",
-      "icd_code": "E11.65",
-      "icd_description": "Type 2 diabetes mellitus with hyperglycemia",
-      "details": "Worsening\nContinue Metformin1000 mg BID and Glimepiride 8 mg",
+      "name": "Essential hypertension",
+      "icd_code": "I10",
+      "icd_description": "Essential (primary) hypertension",
+      "details": "Improving with medication\nContinue lisinopril 20mg daily",
+      "confidence": 0.92,
       "metadata": {
+        "status": "Improving",
         "extraction_method": "langgraph_llm",
-        "status": "Worsening",
-        "icd_code_no_dot": "E1165",
+        "icd_code_no_dot": "I10",
         "is_hcc_relevant": true
       }
     }
   ],
   "metadata": {
-    "source": "sample_progress_note.txt",
+    "source": "progress_note_123.txt",
     "total_conditions": 2,
-    "hcc_relevant_count": 1,
+    "hcc_relevant_count": 2,
     "extraction_method": "langgraph_llm"
   }
 }
 ```
 
-## 📚 Project Structure
+## Troubleshooting
+
+### Common Issues
+
+1. **LLM Extraction Issues**:
+   - Verify Google Cloud credentials are correctly configured
+   - Check if Vertex AI API is enabled in your project
+   - Validate that the service account has proper permissions
+
+2. **RabbitMQ Connection**:
+   - Ensure RabbitMQ is running and credentials are correct
+   - Verify the virtual host is properly URL-encoded if needed
+
+3. **Document Parsing Issues**:
+   - Check if the document format is supported
+   - Ensure the Assessment/Plan section is present and follows standard format
+   - Verify document encoding (UTF-8 recommended)
+
+4. **Memory Usage**:
+   - For large documents or batch processing, monitor memory usage
+   - Consider adjusting Python's garbage collection settings for long-running processes
+
+## Development
+
+### Project Structure
 
 ```
-services/extractor/
-├── app/
+extractor/
+├── __init__.py
+├── main.py                # Entry point
+├── message_consumer.py    # RabbitMQ consumer
+├── extractor/             # Core extraction components
 │   ├── __init__.py
-│   ├── extractor/           # Core extraction logic
-│   ├── graph/               # LangGraph components
-│   ├── llm/                 # LLM integration
-│   ├── models/              # Data models
-│   ├── storage/             # Storage operations
-│   ├── utils/               # Utilities
-├── data/                    # Input data directory
-├── output/                  # Output directory
-├── main.py                  # Entry point
-├── run_extraction.py        # Demo script
-├── Dockerfile               # Docker build instructions
-├── pyproject.toml           # Poetry configuration
-└── README.md                # This file
+│   └── processor.py       # Document processor
+├── graph/                 # LangGraph components
+│   ├── __init__.py
+│   ├── nodes.py           # Pipeline nodes
+│   ├── pipeline.py        # Workflow definition
+│   └── state.py           # State management
+├── llm/                   # LLM integration
+│   ├── __init__.py
+│   ├── client.py          # Vertex AI client
+│   └── prompts.py         # Prompt templates
+├── models/                # Data models
+│   ├── __init__.py
+│   └── document.py        # Document models
+├── storage/               # Storage operations
+│   ├── __init__.py
+│   ├── local.py           # Local storage
+│   └── cloud.py           # Cloud storage
+├── utils/                 # Utilities
+│   ├── __init__.py
+│   ├── document_parser.py # Document parsing
+│   └── hcc_utils.py       # HCC code utilities
+└── tests/                 # Test suite
+    ├── __init__.py
+    └── test_extractor.py  # Extractor tests
 ```
-
-## 🧪 Testing
-
-```bash
-# Run tests
-poetry run pytest
-
-# Run tests with coverage
-poetry run pytest --cov=extractor
-```
-
-## 🌱 Future Improvements
-
-- Add support for more document types (PDF, scanned documents)
-- Implement a web UI for document upload and results visualization
-- Add batch processing optimizations for large datasets
