@@ -6,10 +6,12 @@ and validating HCC relevance determinations for compliance.
 """
 
 import asyncio
+import datetime
 import json
 import logging
 import os
 import sys
+from datetime import timezone
 from typing import Dict, Any, Optional
 
 import aio_pika
@@ -255,7 +257,8 @@ class MessageConsumer:
                 document_id=document_id,
                 compliant_conditions=compliant_count,
                 validation_result_path=output_filename,
-                status=ProcessingStatus.COMPLETED
+                status=ProcessingStatus.COMPLETED,
+                processing_completed_at=datetime.datetime.now(timezone.utc)
             )
 
             # Publish validation completed message
