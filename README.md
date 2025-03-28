@@ -1,120 +1,226 @@
 # HCC Extractor
 
-A sophisticated AI pipeline that extracts medical conditions and HCC-relevant codes from clinical progress notes using LangGraph and Vertex AI Gemini 1.5 Flash.
+![Python: 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)
+![Framework: LangGraph](https://img.shields.io/badge/Framework-LangGraph-orange.svg)
+![AI: Vertex AI Gemini](https://img.shields.io/badge/AI-Vertex_AI_Gemini-green.svg)
+![Status: Production Ready](https://img.shields.io/badge/Status-Production_Ready-green.svg)
 
 ## Overview
 
-This system streamlines the process of reviewing clinical progress notes to extract HCC-relevant conditions, ensuring proper compliant documentation and reducing the risk of missed reimbursements or compliance issues.
+HCC Extractor is a sophisticated AI pipeline that revolutionizes the process of reviewing clinical progress notes for HCC (Hierarchical Condition Categories) documentation. By leveraging cutting-edge AI technologies including Vertex AI Gemini 1.5 Flash, LangGraph, and advanced NLP techniques, the system automates the extraction, analysis, and validation of HCC-relevant conditions, dramatically reducing the time healthcare professionals spend on compliance documentation.
 
-## Features
+## Key Features
 
-- Automatic extraction of medical conditions and their associated codes from clinical progress notes
-- Determination of HCC-relevance using reference data
-- Modular architecture with separation of concerns
-- Built with Vertex AI Gemini Flash and LangGraph for optimal performance
-- Containerized deployment for easy installation and scaling
-- Event-driven architecture with RabbitMQ for reliable message passing
-- Storage watching capabilities for local, S3, and GCS file systems
+- **Automated Condition Extraction**: Parse clinical progress notes to extract medical conditions and their associated ICD-10 codes
+- **HCC Relevance Determination**: Intelligently identify which conditions are HCC-relevant using both rule-based and LLM approaches
+- **Compliance Validation**: Ensure all identified conditions meet documentation requirements for HCC submission
+- **Microservices Architecture**: Modular, scalable design with distinct services for extraction, analysis, and validation
+- **Event-Driven Processing**: RabbitMQ-based message queue for reliable asynchronous processing
+- **Multi-Storage Support**: Compatible with local, S3, and GCS storage backends
+- **RESTful API**: Comprehensive API for document management and processing
+- **Containerized Deployment**: Docker-based deployment for consistent environments and easy scaling
 
 ## Architecture
 
 The system follows a microservices architecture with the following components:
 
-- **API Gateway**: Entry point for HTTP requests, handles authentication and routing
-- **Extractor Service**: Extracts medical conditions from clinical notes
-- **Analyzer Service**: Determines HCC relevance of conditions using Vertex AI and LangGraph
-- **Validator Service**: Validates conditions against business rules
-- **Storage Watcher Service**: Monitors storage systems for new files and triggers processing
-- **RabbitMQ**: Message broker for event-driven communication between services
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                         External Clients                            │
+│                        ┌────────────────────────┐                   │
+│                        │   API HTTP Direct      │                   │
+│                        └────────────┬───────────┘                   │
+│                                     │                               │
+└─────────────────────────────────────┼───────────────────────────────┘
+                                      │
+                                      │
+                                      ▼
+┌─────────┼───────────────────────────────────────────────────────────┐
+│         │                                                           │
+│         │                      TRAEFIK                              │
+│         │                 (Proxy/Load Balancer)                     │
+│         │                                                           │
+└─────────┼───────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                                                                    │
+│                          API GATEWAY                               │
+│ ┌────────────────┐ ┌────────────┐ ┌────────────┐ ┌───────────────┐ │
+│ │  Authentication│ │Rate Limiter│ │  Logging   │ │API Versioning │ │
+│ └────────┬───────┘ └─────┬──────┘ └─────┬──────┘ └───────┬───────┘ │
+│          │               │              │                │         │
+└──────────┼───────────────┼──────────────┼────────────────┼─────────┘
+           │               │              │                │
+           │               │              │                │
+           ▼               ▼              ▼                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                         RabbitMQ                                    │
+│                      (Message Broker)                               │
+│                                                                     │
+└───────┬─────────────────┬──────────────────┬────────────────────────┘
+        │                 │                  │
+        │                 │                  │
+        ▼                 ▼                  ▼
+┌────────────┐    ┌─────────────┐    ┌────────────────┐     ┌───────────────┐
+│            │    │             │    │                │     │               │
+│  Extractor │───▶│  Analyzer   │───▶│   Validator    │────▶│ Results Store │
+│  Service   │    │  Service    │    │   Service      │     │               │
+│            │    │ (LangGraph) │    │                │     │               │
+└────────────┘    └─────────────┘    └────────────────┘     └───────────────┘
+        │                 │                  │                      │
+        │                 │                  │                      │
+        │                 ▼                  │                      │
+        │         ┌─────────────────┐        │                      │
+        │         │                 │        │                      │
+        │         │   Vertex AI    │        │                      │
+        │         │  (Gemini 1.5)  │        │                      │
+        │         │                 │        │                      │
+        │         └─────────────────┘        │                      │
+        │                                    │                      │
+        │                                    │                      │
+        ▼                                    ▼                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                           PostgreSQL                                │
+│                         (Database)                                  │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-## Prerequisites
+## Core Services
 
-- Python 3.10+
+### 1. API Gateway Service
+
+The API Gateway serves as the unified entry point to the HCC Extractor system, providing:
+
+- User authentication and authorization
+- Document management API
+- Webhook management for event notifications
+- Rate limiting and metrics collection
+- Comprehensive logging and monitoring
+
+### 2. Extractor Service
+
+The Extractor Service processes clinical progress notes to identify and extract medical conditions:
+
+- Clinical document parsing and sectioning
+- Assessment/Plan section identification
+- Condition and ICD code extraction
+- Patient demographics and metadata extraction
+- LangGraph-orchestrated extraction workflow
+
+### 3. Analyzer Service
+
+The Analyzer Service evaluates each extracted condition for HCC relevance:
+
+- Rule-based initial HCC matching
+- LLM-based enrichment for complex determinations
+- Confidence scoring and reasoning for each determination
+- Multi-stage analysis pipeline with LangGraph
+- Comprehensive metrics and confidence assessment
+
+### 4. Validator Service
+
+The Validator Service ensures that identified HCC conditions meet compliance requirements:
+
+- Flexible rules engine for business rule application
+- ICD-10 code validation
+- Documentation compliance verification
+- Confidence threshold enforcement
+- Detailed validation reporting
+
+## Setup & Installation
+
+### Prerequisites
+
+- Python 3.12+
 - Docker and Docker Compose
 - Google Cloud Platform account with Vertex AI access
 - Service account JSON key file with Vertex AI permissions
 
-## Setup Instructions
+### Environment Setup
 
-### 1. Clone the repository
+1. Clone the repository:
 
 ```bash
 git clone https://github.com/yourusername/hcc-extractor.git
 cd hcc-extractor
 ```
 
-### 2. Set up environment variables
+### Using Docker Compose
 
-Copy the example environment file and update it with your GCP credentials:
-
-```bash
-cp .env.example .env
-```
-
-Edit the `.env` file to set your Google Cloud project ID and the path to your service account key file.
-
-### 3. Start the services using Docker Compose
+The easiest way to run the entire system is using Docker Compose:
 
 ```bash
 docker-compose up -d
 ```
 
-This will start all the required services including:
+This will start all the required services:
 - RabbitMQ message broker
+- PostgreSQL database
+- Traefik reverse proxy
 - API Gateway
 - Extractor Service
 - Analyzer Service
 - Validator Service
 - Storage Watcher Service
-- LangGraph development web app
 
-### 4. Run the LangGraph development web app
+### LangGraph Development Web App
 
-The LangGraph development web app allows you to visualize and debug the extraction and analysis workflows. It's automatically started as part of the Docker Compose setup and can be accessed at:
-
-```
-http://localhost:8001
-```
-
-Alternatively, you can start it manually with:
+The LangGraph development web app allows you to visualize and debug the extraction and analysis workflows:
 
 ```bash
-langgraph dev
+docker-compose up langgraph-dev
 ```
+
+Access the web app at: http://localhost:8001
 
 ## Usage
 
-### Processing files through API
+### Processing Files Through API
 
-You can submit clinical documents for processing through the API Gateway:
+Submit clinical documents for processing through the API Gateway:
 
 ```bash
-curl -X POST -F "file=@/path/to/progress_note.txt" http://localhost:8000/api/v1/documents
+curl -X POST -F "file=@/path/to/progress_note.txt" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8000/api/v1/documents
 ```
 
-### Automated processing with Storage Watcher
+### Batch Processing
 
-The Storage Watcher service automatically monitors the configured storage location for new files and triggers processing without manual intervention.
+For processing multiple files at once:
+
+```bash
+curl -X POST -F "files[]=@/path/to/note1.txt" \
+  -F "files[]=@/path/to/note2.txt" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:8000/api/v1/batch/upload
+```
+
+### Automated Processing with Storage Watcher
+
+The Storage Watcher service automatically monitors configured storage locations:
 
 1. Place clinical progress notes in the watched directory (default: `./data`)
-2. The Storage Watcher will detect new files and publish events to RabbitMQ
-3. The Extractor service will process the files and extract conditions
-4. The Analyzer service will determine HCC relevance
-5. The Validator service will validate the results
-6. Results will be available in the output directory (default: `./output`)
+2. Files are automatically detected and processed through the pipeline
+3. Results are available in the output directory (default: `./output`)
 
-### Configuring Storage Watcher
+## Configuring Storage Options
 
-The Storage Watcher can be configured to monitor different storage systems:
+The system supports multiple storage backends:
 
-#### Local Filesystem
+### Local Filesystem
 
 ```
 STORAGE_TYPE=local
 WATCH_PATH=/path/to/directory
 ```
 
-#### Amazon S3
+### Amazon S3
 
 ```
 STORAGE_TYPE=s3
@@ -124,7 +230,7 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 AWS_REGION=us-east-1
 ```
 
-#### Google Cloud Storage
+### Google Cloud Storage
 
 ```
 STORAGE_TYPE=gcs
@@ -132,13 +238,23 @@ WATCH_PATH=gs://bucket-name/prefix
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
 ```
 
-## Project Structure
+## Processing Workflow
+
+1. **Document Ingestion**: Clinical notes are uploaded via API or detected by Storage Watcher
+2. **Extraction**: The Extractor Service parses the document and identifies conditions
+3. **Analysis**: The Analyzer Service determines HCC relevance for each condition
+4. **Validation**: The Validator Service ensures compliance with documentation requirements
+5. **Result Storage**: Results are stored and made available via API or in the output directory
+
+## Development
+
+### Project Structure
 
 ```
 hcc-extractor/
 ├── docker-compose.yml              # Defines all services
 ├── .env.example                    # Template for environment variables
-├── README.md                       # Documentation
+├── README.md                       # This file
 ├── services/
 │   ├── api-gateway/                # API Gateway service
 │   ├── extractor/                  # Extraction service
@@ -146,5 +262,67 @@ hcc-extractor/
 │   ├── validator/                  # Validation service
 │   └── storage-watcher/            # Storage watching service
 ├── traefik/                        # Traefik configuration
-└── tests/                          # Tests
+├── data/                           # Input data directory
+│   └── HCC_relevant_codes.csv      # HCC reference data
+├── output/                         # Output results directory
+└── tests/                          # System tests
 ```
+
+### Running Tests
+
+Each service includes its own test suite:
+
+```bash
+# Run tests for a specific service
+cd services/extractor
+pytest
+
+# Run with coverage
+pytest --cov=extractor
+```
+
+## API Documentation
+
+API documentation is available at:
+
+```
+http://localhost:8000/api/docs
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **LLM Integration**:
+   - Verify Google Cloud credentials are correctly configured
+   - Check if Vertex AI API is enabled in your project
+   - Validate that the service account has proper permissions
+
+2. **RabbitMQ Connection**:
+   - Ensure RabbitMQ is running and credentials are correct
+   - Check queue and exchange declarations
+
+3. **HCC Codes CSV**:
+   - Confirm the HCC codes CSV file is available at the specified path
+   - Verify the CSV has the expected columns: "ICD-10-CM Codes", "Description", and "Tags"
+
+4. **Database Connection**:
+   - Check PostgreSQL credentials and connection settings
+   - Ensure database migrations have been applied
+
+### Logging
+
+Each service includes comprehensive logging. View logs with:
+
+```bash
+docker-compose logs -f api-gateway
+docker-compose logs -f extractor
+docker-compose logs -f analyzer
+docker-compose logs -f validator
+```
+
+## Acknowledgments
+
+- This project uses Vertex AI Gemini 2.0 Flash for NLP processing
+- LangGraph framework for workflow orchestration
+- Healthcare experts for domain knowledge and validation
