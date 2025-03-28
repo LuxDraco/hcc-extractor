@@ -208,6 +208,12 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=hcc_extractor
     depends_on:
+      extractor:
+        condition: service_started
+      analyzer:
+        condition: service_started
+      validator:
+        condition: service_started
       rabbitmq:
         condition: service_healthy
       postgres:
