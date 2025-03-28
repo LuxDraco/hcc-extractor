@@ -42,5 +42,19 @@ ENV FILE_PATTERNS="*.txt,*.pdf,*"
 # Expose port if needed (for future HTTP API or metrics)
 EXPOSE 8000
 
-# Set entry point
-CMD ["poetry", "run", "dev"]
+# Crear script de inicio simple con retraso
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "Waiting 15 seconds for other services to initialize..."\n\
+sleep 15\n\
+\n\
+echo "Starting storage watcher service..."\n\
+exec poetry run dev\n\
+' > /app/start.sh
+
+# Dar permisos de ejecución
+RUN chmod +x /app/start.sh
+
+# Comando para ejecutar
+CMD ["/bin/bash", "/app/start.sh"]
