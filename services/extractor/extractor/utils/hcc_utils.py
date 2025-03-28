@@ -57,7 +57,7 @@ class HCCCodeManager:
         except Exception as e:
             raise RuntimeError(f"Failed to load HCC codes: {e}")
 
-    def is_hcc_relevant(self, code: str) -> bool:
+    def is_hcc_relevant(self, code: Optional[str]) -> bool:
         """
         Check if a code is HCC-relevant.
 
@@ -69,6 +69,10 @@ class HCCCodeManager:
         """
         if not self._loaded:
             self.load_hcc_codes()
+
+        # Handle None or empty string
+        if not code:
+            return False
 
         # Normalize the code by removing the dot
         code_no_dot = code.replace(".", "")
@@ -86,6 +90,10 @@ class HCCCodeManager:
         """
         if not self._loaded:
             self.load_hcc_codes()
+
+        # Handle None or empty string
+        if not code:
+            return {}
 
         # Normalize the code by removing the dot
         code_no_dot = code.replace(".", "")
