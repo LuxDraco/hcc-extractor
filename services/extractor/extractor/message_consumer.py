@@ -97,11 +97,13 @@ class MessageConsumer:
             # Create connection string
             host = self.virtual_host.replace("/", "%2F")
             connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{host}"
-            # connection_string = f"amqp://hccuser:hccpass@rabbitmq:5672/%2F"
             logging.info(f"Connecting to RabbitMQ at {connection_string}")
 
             # Connect to RabbitMQ
-            self.connection = await aio_pika.connect_robust(connection_string)
+            self.connection = await aio_pika.connect_robust(
+                connection_string,
+                timeout=30.0,
+            )
 
             # Create channel
             self.channel = await self.connection.channel()
