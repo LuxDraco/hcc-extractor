@@ -252,41 +252,55 @@ A typical extraction result looks like:
 
 ```json
 {
-  "document_id": "doc-progress_note_123",
+  "document_id": "788e5e9c-8d9d-4fc7-98eb-2553460a9e35",
   "conditions": [
     {
       "id": "cond-1",
-      "name": "Type 2 diabetes mellitus",
-      "icd_code": "E11.9",
-      "icd_description": "Type 2 diabetes mellitus without complications",
-      "details": "Stable\nContinue Metformin 1000mg twice daily",
+      "name": "Gastroesophageal reflux disease",
+      "icd_code": "K21.9",
+      "icd_description": "Gastro-esophageal reflux disease without esophagitis",
+      "details": "Continue the antacids, F/U in 3 months",
       "confidence": 0.95,
       "metadata": {
-        "status": "Stable",
         "extraction_method": "langgraph_llm",
-        "icd_code_no_dot": "E119",
-        "is_hcc_relevant": true
+        "status": "Stable",
+        "icd_code_no_dot": "K219",
+        "is_hcc_relevant": false
       }
     },
     {
       "id": "cond-2",
-      "name": "Essential hypertension",
-      "icd_code": "I10",
-      "icd_description": "Essential (primary) hypertension",
-      "details": "Improving with medication\nContinue lisinopril 20mg daily",
-      "confidence": 0.92,
+      "name": "Hyperglycemia due to type 2 diabetes mellitus",
+      "icd_code": "E11.65",
+      "icd_description": "Type 2 diabetes mellitus with hyperglycemia",
+      "details": "Continue Metformin1000 mg BID and Glimepiride 8 mg. Recommend a low sugar and low carbohydrate diet. Fruits and vegetables are acceptable. Discussed 1/2 plate with non-starchy vegetables, 1/4 of plate with carbohydrates such as whole grain, 1/4 of plate with lean protein. Include healthy fats in your meal like: Olive oil, canola oil, avocado, and nuts",
+      "confidence": 0.95,
       "metadata": {
-        "status": "Improving",
         "extraction_method": "langgraph_llm",
-        "icd_code_no_dot": "I10",
+        "status": "Worsening",
+        "icd_code_no_dot": "E1165",
+        "is_hcc_relevant": true
+      }
+    },
+    {
+      "id": "cond-3",
+      "name": "Chronic obstructive lung disease",
+      "icd_code": "J44.9",
+      "icd_description": "Chronic obstructive pulmonary disease, unspecified",
+      "details": "SPO2-98% today. Maintain current inhaler regimen: Tiotropium and Fluticasone/Salmeterol. Counseled for smoking cessation today",
+      "confidence": 0.95,
+      "metadata": {
+        "extraction_method": "langgraph_llm",
+        "status": "Unchanged",
+        "icd_code_no_dot": "J449",
         "is_hcc_relevant": true
       }
     }
   ],
   "metadata": {
-    "source": "progress_note_123.txt",
-    "total_conditions": 2,
-    "hcc_relevant_count": 2,
+    "source": "pn_1",
+    "total_conditions": 7,
+    "hcc_relevant_count": 5,
     "extraction_method": "langgraph_llm"
   }
 }
