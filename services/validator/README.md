@@ -246,6 +246,110 @@ The validator applies several business rules to each condition:
 4. **Memory Usage**:
    - For large datasets, monitor memory usage as loading many HCC codes can be memory-intensive
 
+## Example Output
+
+A typical validation report looks like this:
+
+```json
+{
+  "document_id": "788e5e9c-8d9d-4fc7-98eb-2553460a9e35",
+  "conditions": [
+    {
+      "id": "cond-1",
+      "name": "Gastroesophageal reflux disease",
+      "icd_code": "K21.9",
+      "icd_description": "Gastro-esophageal reflux disease without esophagitis",
+      "details": "Continue the antacids, F/U in 3 months",
+      "hcc_relevant": false,
+      "hcc_code": null,
+      "hcc_category": null,
+      "confidence": 0.8,
+      "reasoning": "No exact match with HCC-relevant codes in reference data",
+      "metadata": {
+        "extraction_method": "langgraph_llm",
+        "status": "Stable",
+        "icd_code_no_dot": "K219",
+        "is_hcc_relevant": false
+      },
+      "is_compliant": false,
+      "validation_results": [
+        {
+          "rule_id": "valid_icd_code",
+          "description": "Condition must have a valid ICD-10 code",
+          "passed": false
+        },
+        {
+          "rule_id": "hcc_relevance_verified",
+          "description": "HCC-relevant conditions must have a code in the HCC reference list",
+          "passed": true
+        },
+        {
+          "rule_id": "sufficient_confidence",
+          "description": "Confidence score must be at least 0.7 for inclusion",
+          "passed": true
+        },
+        {
+          "rule_id": "code_description_match",
+          "description": "ICD code and description must match",
+          "passed": false
+        }
+      ]
+    },
+    {
+      "id": "cond-2",
+      "name": "Hyperglycemia due to type 2 diabetes mellitus",
+      "icd_code": "E11.65",
+      "icd_description": "Type 2 diabetes mellitus with hyperglycemia",
+      "details": "Continue Metformin1000 mg BID and Glimepiride 8 mg. Recommend a low sugar and low carbohydrate diet. Fruits and vegetables are acceptable. Discussed 1/2 plate with non-starchy vegetables, 1/4 of plate with carbohydrates such as whole grain, 1/4 of plate with lean protein. Include healthy fats in your meal like: Olive oil, canola oil, avocado, and nuts",
+      "hcc_relevant": true,
+      "hcc_code": "E1165",
+      "hcc_category": null,
+      "confidence": 1.0,
+      "reasoning": "Direct match with HCC-relevant code: E11.65",
+      "metadata": {
+        "extraction_method": "langgraph_llm",
+        "status": "Worsening",
+        "icd_code_no_dot": "E1165",
+        "is_hcc_relevant": true
+      },
+      "is_compliant": false,
+      "validation_results": [
+        {
+          "rule_id": "valid_icd_code",
+          "description": "Condition must have a valid ICD-10 code",
+          "passed": false
+        },
+        {
+          "rule_id": "hcc_relevance_verified",
+          "description": "HCC-relevant conditions must have a code in the HCC reference list",
+          "passed": false
+        },
+        {
+          "rule_id": "sufficient_confidence",
+          "description": "Confidence score must be at least 0.7 for inclusion",
+          "passed": true
+        },
+        {
+          "rule_id": "code_description_match",
+          "description": "ICD code and description must match",
+          "passed": false
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "document_id": "788e5e9c-8d9d-4fc7-98eb-2553460a9e35",
+    "total_conditions": 7,
+    "hcc_relevant_count": 5,
+    "high_confidence_count": 5,
+    "confidence_avg": 0.9428571428571428,
+    "error_count": 0,
+    "compliant_conditions": 0,
+    "non_compliant_conditions": 7
+  }
+}
+```
+
 ## Development
 
 ### Adding New Validation Rules
