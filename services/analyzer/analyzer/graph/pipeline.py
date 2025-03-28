@@ -107,16 +107,27 @@ class AnalysisPipeline:
             "metadata": {},
         }
 
-        # Execute the workflow
-        result = self.graph.invoke(initial_state)
+        try:
+            # Execute the workflow
+            result = self.graph.invoke(initial_state)
 
-        # Create analysis result
-        analysis_result = AnalysisResult(
-            document_id=document_id,
-            conditions=result["analyzed_conditions"],
-            metadata=result["metadata"],
-            errors=result["errors"],
-        )
+            # Create analysis result
+            analysis_result = AnalysisResult(
+                document_id=document_id,
+                conditions=result["analyzed_conditions"],
+                metadata=result["metadata"],
+                errors=result["errors"],
+            )
+        except Exception as e:
+            # Handle error case
+            error_message = f"Pipeline execution failed: {str(e)}"
+            # Create analysis result with error information
+            analysis_result = AnalysisResult(
+                document_id=document_id,
+                conditions=[],  # Empty conditions list since processing failed
+                metadata={"error": error_message},
+                errors=[error_message],
+            )
 
         return analysis_result
 
