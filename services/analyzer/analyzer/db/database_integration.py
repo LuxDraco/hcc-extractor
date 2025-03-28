@@ -92,6 +92,7 @@ class DatabaseUpdater:
 
             # Convert UUID string to UUID object safely
             try:
+                # Create UUID object but don't cast to ::UUID in SQL yet
                 document_uuid = uuid.UUID(document_id)
             except (ValueError, TypeError, AttributeError):
                 logger.error(f"Error updating document status: badly formed hexadecimal UUID string")
@@ -120,7 +121,7 @@ class DatabaseUpdater:
                 logger.warning("No values provided for update")
                 return
 
-            # Create and execute the update
+            # Create and execute the update - using the UUID object directly, not as string
             stmt = (
                 update(Document)
                 .where(Document.id == document_uuid)
