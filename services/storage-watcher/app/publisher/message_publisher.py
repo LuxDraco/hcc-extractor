@@ -10,8 +10,12 @@ import logging
 from typing import Any, Dict, Optional
 
 import aio_pika
+from aio_pika import ExchangeType
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 class MessagePublisher:
@@ -23,8 +27,8 @@ class MessagePublisher:
             port: int = 5672,
             username: str = "guest",
             password: str = "guest",
-            queue: str = "document-events",
-            exchange: str = "",
+            queue: str = "storage-watcher-events",
+            exchange: str = "hcc-extractor",
             virtual_host: str = "/",
             connection_timeout: float = 5.0,
     ) -> None:
@@ -53,7 +57,7 @@ class MessagePublisher:
         self.connection: Optional[aio_pika.Connection] = None
         self.channel: Optional[aio_pika.Channel] = None
         self.queue: Optional[aio_pika.Queue] = None
-        self.exchange: Optional[aio_pika.Exchange] = None
+        # self.exchange: Optional[aio_pika.Exchange] = None
 
     async def connect(self) -> None:
         """
@@ -64,7 +68,9 @@ class MessagePublisher:
         """
         try:
             # Create connection string
-            connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{self.virtual_host}"
+            host = self.virtual_host.replace("/", "%2F")
+            connection_string = f"amqp://{self.username}:{self.password}@{self.host}:{self.port}/{host}"
+            logging.info(f"Connecting to RabbitMQ at {connection_string}")
 
             # Connect to RabbitMQ
             self.connection = await aio_pika.connect_robust(
@@ -74,9 +80,20 @@ class MessagePublisher:
             # Create channel
             self.channel = await self.connection.channel()
 
+            self.exchange = await self.channel.declare_exchange(
+                self.exchange_name,
+                type=ExchangeType.TOPIC,
+                durable=True,
+            )
+
             # Declare queue
             self.queue = await self.channel.declare_queue(
                 self.queue_name, durable=True
+            )
+
+            await self.queue.bind(
+                self.exchange,
+                routing_key="document.#"
             )
 
             # Get exchange
@@ -124,7 +141,10 @@ class MessagePublisher:
             )
 
             # Publish message
-            await self.exchange.publish(pika_message, routing_key=routing_key)
+            await self.exchange.publish(
+                message=pika_message,
+                routing_key="document.uploaded"
+            )
 
             logger.debug(f"Published message to {routing_key}")
 
