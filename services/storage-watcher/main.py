@@ -7,12 +7,16 @@ to RabbitMQ when new files are detected.
 """
 
 import asyncio
+import datetime
 import logging
 import os
 import signal
 import sys
+from datetime import timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Type, Union
+
+from dotenv import load_dotenv
 
 from app.db.base import Base
 from app.db.models.document import Document, ProcessingStatus, StorageType
@@ -22,7 +26,9 @@ from app.watchers.base_watcher import BaseStorageWatcher
 from app.watchers.gcs_watcher import GCSStorageWatcher
 from app.watchers.local_watcher import LocalStorageWatcher
 from app.watchers.s3_watcher import S3StorageWatcher
+
 from app.db.models.user import User
+from app.db.base import Base
 
 # Configure logging
 logging.basicConfig(
@@ -31,6 +37,8 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 class StorageWatcherService:
@@ -44,7 +52,7 @@ class StorageWatcherService:
             rabbitmq_port: int = 5672,
             rabbitmq_user: str = "guest",
             rabbitmq_password: str = "guest",
-            rabbitmq_queue: str = "document-events",
+            rabbitmq_queue: str = "storage-watcher-events",
             watch_interval: float = 10.0,
             file_patterns: Optional[List[str]] = None,
     ) -> None:
@@ -120,6 +128,8 @@ class StorageWatcherService:
 
         logging.info(f"Table Keys: {Base.metadata.tables.keys()}")
 
+        logging.info(f"Table Columns: {Base.metadata.tables.keys()}")
+
         try:
             while self.running:
                 try:
@@ -150,7 +160,7 @@ class StorageWatcherService:
                                 storage_path=str(file_info["path"]),
                                 status=ProcessingStatus.PENDING,
                                 is_processed=False,
-                                processing_started_at=None,
+                                processing_started_at=datetime.datetime.now(timezone.utc),
                                 processing_completed_at=None,
                                 description="Document processed from storage watcher service",
                                 priority=True,
@@ -201,7 +211,7 @@ async def run_service():
     rabbitmq_port = int(os.environ.get("RABBITMQ_PORT", "5672"))
     rabbitmq_user = os.environ.get("RABBITMQ_USER", "guest")
     rabbitmq_password = os.environ.get("RABBITMQ_PASSWORD", "guest")
-    rabbitmq_queue = os.environ.get("RABBITMQ_QUEUE", "document-events")
+    rabbitmq_queue = os.environ.get("RABBITMQ_QUEUE", "storage-watcher-events")
     watch_interval = float(os.environ.get("WATCH_INTERVAL", "10.0"))
     file_patterns_str = os.environ.get("FILE_PATTERNS", "*.txt,*")
     file_patterns = [p.strip() for p in file_patterns_str.split(",")]
