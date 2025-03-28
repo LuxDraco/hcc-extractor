@@ -17,7 +17,7 @@ class LocalStorageWatcher(BaseStorageWatcher):
     """Watcher for local filesystem directories."""
 
     def __init__(
-        self, watch_path: Union[str, Path], file_patterns: List[str]
+            self, watch_path: Union[str, Path], file_patterns: List[str]
     ) -> None:
         """
         Initialize the local storage watcher.
