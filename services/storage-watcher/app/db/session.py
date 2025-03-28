@@ -8,6 +8,7 @@ with SQLAlchemy's async functionality.
 from typing import AsyncGenerator
 
 import structlog
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -19,6 +20,8 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
+
+load_dotenv()
 
 # Create async engine for PostgresSQL
 engine = create_async_engine(
@@ -49,7 +52,8 @@ async def close_database_pool():
 
 def get_db_session():
     """Get a database session."""
-    engine_tmp = create_engine(f"postgresql://{settings.POSTGRES_USER}:postgres@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
+    engine_tmp = create_engine(
+        f"postgresql://{settings.POSTGRES_USER}:postgres@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
     session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine_tmp)
     db = session_local()
     try:
