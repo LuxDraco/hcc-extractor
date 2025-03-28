@@ -5,27 +5,20 @@ This module contains tests for the analyzer components, including the GraphState
 LLM client, and analysis pipeline.
 """
 
-import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
-import json
-import pandas as pd
 import os
-from pathlib import Path
+import unittest
 import uuid
+from unittest.mock import MagicMock, patch
 
-from analyzer.models.condition import Condition, AnalysisResult
-from analyzer.graph.pipeline import AnalysisPipeline
 from analyzer.graph.nodes import (
-    load_hcc_codes,
-    prepare_conditions,
     determine_hcc_relevance,
     enrichment_with_llm,
-    finalize_analysis,
-    fix_nan_values
+    finalize_analysis
 )
+from analyzer.graph.pipeline import AnalysisPipeline
 from analyzer.graph.state import GraphState
 from analyzer.llm.client import GeminiClient
-from analyzer.db.models.document import ProcessingStatus
+from analyzer.models.condition import Condition, AnalysisResult
 
 
 class TestGraphState(unittest.TestCase):
@@ -130,7 +123,8 @@ class TestGeminiClient(unittest.TestCase):
         ]
 
         self.test_hcc_codes = [
-            {"ICD-10-CM Codes": "E11.9", "Description": "Type 2 diabetes mellitus without complications", "Tags": "HCC19"},
+            {"ICD-10-CM Codes": "E11.9", "Description": "Type 2 diabetes mellitus without complications",
+             "Tags": "HCC19"},
             {"ICD-10-CM Codes": "I10", "Description": "Essential (primary) hypertension", "Tags": "HCC85"}
         ]
 
@@ -224,7 +218,8 @@ class TestGraphNodes(unittest.TestCase):
 
         # Create test HCC codes
         self.test_hcc_codes = [
-            {"ICD-10-CM Codes": "E11.9", "Description": "Type 2 diabetes mellitus without complications", "Tags": "HCC19"},
+            {"ICD-10-CM Codes": "E11.9", "Description": "Type 2 diabetes mellitus without complications",
+             "Tags": "HCC19"},
             {"ICD-10-CM Codes": "I10", "Description": "Essential (primary) hypertension", "Tags": "HCC85"}
         ]
 
@@ -575,59 +570,64 @@ class TestDatabaseIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up the test environment."""
-        # Mock the SQLAlchemy engine and session
-        with patch('analyzer.db.database_integration.create_engine') as self.mock_create_engine, \
-             patch('analyzer.db.database_integration.sessionmaker') as self.mock_sessionmaker, \
-             patch('analyzer.db.database_integration.uuid.UUID') as self.mock_uuid:
+        # Create patches but don't start them yet
+        self.create_engine_patcher = patch('analyzer.db.database_integration.create_engine')
+        self.sessionmaker_patcher = patch('analyzer.db.database_integration.sessionmaker')
+        self.uuid_patcher = patch('analyzer.db.database_integration.uuid')
 
-            # Configure sessionmaker mock
-            self.mock_session = MagicMock()
-            self.mock_sessionmaker.return_value.return_value = self.mock_session
+        # Start patches
+        self.mock_create_engine = self.create_engine_patcher.start()
+        self.mock_sessionmaker = self.sessionmaker_patcher.start()
+        self.mock_uuid = self.uuid_patcher.start()
 
-            # Configure UUID mock to accept string input
-            self.mock_uuid.side_effect = lambda x: x
+        # Configure UUID mock - important to mock the entire uuid module
+        test_uuid = uuid.UUID('12345678-1234-5678-1234-567812345678')
+        self.mock_uuid.UUID.return_value = test_uuid
 
-            # Import db_updater here to use patched dependencies
-            from analyzer.db.database_integration import db_updater
-            self.db_updater = db_updater
+        # Configure session mock
+        self.mock_session = MagicMock()
+        self.mock_sessionmaker.return_value.return_value = self.mock_session
+
+        # Import db_updater here to use patched dependencies
+        from analyzer.db.database_integration import DatabaseUpdater
+        self.db_updater = DatabaseUpdater()
+
+    def tearDown(self):
+        """Clean up after tests."""
+        # Stop all patches
+        self.create_engine_patcher.stop()
+        self.sessionmaker_patcher.stop()
+        self.uuid_patcher.stop()
 
     def test_update_document_analysis_status(self):
         """Test updating document analysis status."""
-        with patch('analyzer.db.database_integration.uuid.UUID') as mock_uuid:
-            # Configure UUID mock to accept string input
-            mock_uuid.side_effect = lambda x: x
+        # Call the update method
+        self.db_updater.update_document_analysis_status(
+            document_id="test-doc-001",
+            total_conditions=5,
+            hcc_relevant_conditions=3,
+            analysis_result_path="test_analyzed.json",
+            status="ANALYZING"
+        )
 
-            # Call the update method
-            self.db_updater.update_document_analysis_status(
-                document_id="test-doc-001",
-                total_conditions=5,
-                hcc_relevant_conditions=3,
-                analysis_result_path="test_analyzed.json",
-                status="ANALYZING"
-            )
-
-            # Verify session methods were called
-            self.mock_session.execute.assert_called()
-            self.mock_session.commit.assert_called()
+        # Verify session methods were called
+        self.mock_session.execute.assert_called_once()
+        self.mock_session.commit.assert_called_once()
 
     def test_error_handling(self):
         """Test error handling in database operations."""
-        with patch('analyzer.db.database_integration.uuid.UUID') as mock_uuid:
-            # Configure UUID mock to accept string input
-            mock_uuid.side_effect = lambda x: x
+        # Configure session to raise an exception
+        self.mock_session.execute.side_effect = Exception("Test database error")
 
-            # Configure session to raise an exception
-            self.mock_session.execute.side_effect = Exception("Test database error")
+        # Call the update method (should handle the error gracefully)
+        self.db_updater.update_document_analysis_status(
+            document_id="test-doc-001",
+            status="ANALYZING"
+        )
 
-            # Call the update method (should handle the error gracefully)
-            self.db_updater.update_document_analysis_status(
-                document_id="test-doc-001",
-                status="ANALYZING"
-            )
-
-            # Verify session methods were called
-            self.mock_session.execute.assert_called()
-            self.mock_session.rollback.assert_called()
+        # Verify session methods were called
+        self.mock_session.execute.assert_called_once()
+        self.mock_session.rollback.assert_called_once()
 
 
 if __name__ == "__main__":
