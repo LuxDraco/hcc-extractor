@@ -60,7 +60,8 @@ class DatabaseUpdater:
     def update_document_validation_status(
             self, document_id, compliant_conditions=None,
             validation_result_path=None,
-            status: ProcessingStatus = ProcessingStatus.VALIDATING
+            status: ProcessingStatus = ProcessingStatus.VALIDATING,
+            processing_completed_at=None
     ):
         """
         Update the document status during validation.
@@ -89,6 +90,9 @@ class DatabaseUpdater:
             # If status is completed, update the is_processed flag
             if status == ProcessingStatus.COMPLETED:
                 values["is_processed"] = True
+
+            if processing_completed_at is not None:
+                values["processing_completed_at"] = processing_completed_at
 
             # Create and execute the update
             stmt = (
