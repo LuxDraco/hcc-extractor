@@ -5,9 +5,12 @@ This module defines the individual processing nodes used in the analysis
 workflow graph, including HCC relevance determination and verification.
 """
 import logging
+import math
+from typing import Dict, List, TypedDict, Optional, Any, Union
 
-from analyzer.graph.state import GraphState
 from analyzer.llm.client import GeminiClient
+from analyzer.models.condition import Condition
+from analyzer.graph.state import GraphState
 
 
 def load_hcc_codes(state: GraphState) -> GraphState:
@@ -67,54 +70,29 @@ def determine_hcc_relevance(state: GraphState) -> GraphState:
     # Create a dictionary for quick lookup of HCC-relevant codes
     hcc_code_dict = {code["ICD-10-CM Codes"]: code for code in hcc_codes}
 
-    analyzed_conditions = []
+    # Also create a version without dots for matching
+    hcc_code_dict_no_dot = {
+        code["ICD-10-CM Codes"].replace(".", ""): code
+        for code in hcc_codes
+    }
 
     for condition in conditions:
-        # Copy the condition to avoid modifying the original
-        analyzed = condition.model_copy(deep=True)
-
         # Get the ICD code
-        icd_code_no_dot = condition.metadata.get("icd_code_no_dot")
         icd_code = condition.icd_code
-
-        logging.info(f"Icd code: {icd_code}")
-        logging.info(f"Icd code no dot: {icd_code_no_dot}")
+        icd_code_no_dot = condition.metadata.get("icd_code_no_dot")
+        if not icd_code_no_dot and icd_code:
+            icd_code_no_dot = icd_code.replace(".", "")
+            condition.metadata["icd_code_no_dot"] = icd_code_no_dot
 
         # Check if the ICD code is HCC-relevant
-        if (icd_code and icd_code_no_dot) and (icd_code in hcc_code_dict or icd_code_no_dot in hcc_code_dict):
-            # Mark as HCC-relevant
-            try:
-                # First try with the dotted version
-                if icd_code in hcc_code_dict:
-                    hcc_info = hcc_code_dict[icd_code]
-                # Then try with the no-dot version
-                else:
-                    hcc_info = hcc_code_dict[icd_code_no_dot]
+        is_hcc_relevant = False
+        if icd_code in hcc_code_dict:
+            is_hcc_relevant = True
+        elif icd_code_no_dot and icd_code_no_dot in hcc_code_dict_no_dot:
+            is_hcc_relevant = True
 
-                analyzed.hcc_relevant = True
-                analyzed.hcc_code = icd_code_no_dot
-                analyzed.hcc_category = hcc_info.get("Tags", "")
-                analyzed.confidence = 1.0
-                analyzed.reasoning = f"Direct match with HCC-relevant code: {icd_code}"
-            except KeyError:
-                # This is a safeguard in case the code is somehow in the condition but not in the dictionary
-                analyzed.hcc_relevant = False
-                analyzed.hcc_code = None
-                analyzed.hcc_category = None
-                analyzed.confidence = 0.8
-                analyzed.reasoning = f"Code check resulted in KeyError for {icd_code}/{icd_code_no_dot}"
-        else:
-            # Not HCC-relevant based on exact match
-            analyzed.hcc_relevant = False
-            analyzed.hcc_code = None
-            analyzed.hcc_category = None
-            analyzed.confidence = 0.8  # High confidence but not 100% since we're checking exact matches only
-            analyzed.reasoning = "No exact match with HCC-relevant codes in reference data"
-
-        analyzed_conditions.append(analyzed)
-
-    # Update state
-    state["analyzed_conditions"] = analyzed_conditions
+        # Update condition metadata
+        condition.metadata["is_hcc_relevant"] = is_hcc_relevant
 
     return state
 
@@ -129,7 +107,7 @@ def enrichment_with_llm(state: GraphState) -> GraphState:
     Returns:
         Updated state with LLM-enriched HCC determinations
     """
-    conditions = state.get("analyzed_conditions", [])
+    conditions = state.get("conditions", [])
     hcc_codes = state.get("hcc_codes", [])
 
     # Skip if no conditions or all are already confidently determined
@@ -197,8 +175,6 @@ def fix_nan_values(data):
     Returns:
         The data structure with NaN values replaced by None
     """
-    import math
-
     if isinstance(data, dict):
         return {k: fix_nan_values(v) for k, v in data.items()}
     elif isinstance(data, list):
@@ -209,7 +185,6 @@ def fix_nan_values(data):
         return data
 
 
-# Add this to the finalize_analysis function before returning state
 def finalize_analysis(state: GraphState) -> GraphState:
     """
     Finalize the analysis results.
@@ -221,7 +196,12 @@ def finalize_analysis(state: GraphState) -> GraphState:
         Updated state with finalized analysis
     """
     document_id = state.get("document_id", "unknown")
-    conditions = state.get("analyzed_conditions", [])
+    conditions = state.get("conditions", [])
+
+    # Preserve the original conditions by setting analyzed_conditions
+    # Only do this if analyzed_conditions is still empty
+    if not state["analyzed_conditions"]:
+        state["analyzed_conditions"] = conditions
 
     # Calculate statistics for metadata
     total_conditions = len(conditions)
@@ -241,39 +221,25 @@ def finalize_analysis(state: GraphState) -> GraphState:
     # Fix NaN values in metadata
     state["metadata"] = fix_nan_values(state["metadata"])
 
-    # Fix any NaN values in all conditions and recreate them
-    for i, condition in enumerate(conditions):
+    # Fix any NaN values in all conditions
+    for i, condition in enumerate(state["analyzed_conditions"]):
         # Get dict representation
         condition_dict = condition.model_dump()
 
         # Fix NaN values
         fixed_dict = fix_nan_values(condition_dict)
 
-        # Instead of directly modifying the condition object, which might leave some NaN values,
-        # create a new Condition from the fixed dict
+        # Fix any NaN values in metadata
+        if "metadata" in fixed_dict:
+            fixed_dict["metadata"] = fix_nan_values(fixed_dict["metadata"])
+
+        # Create a new condition object with fixed values
         from analyzer.models.condition import Condition
         try:
-            # First fix any NaN values in metadata
-            if "metadata" in fixed_dict:
-                fixed_dict["metadata"] = fix_nan_values(fixed_dict["metadata"])
-
-            # Create a new condition object with fixed values
             new_condition = Condition(**fixed_dict)
-            conditions[i] = new_condition
+            state["analyzed_conditions"][i] = new_condition
         except Exception as e:
             # If there's an error creating the new condition, log it and keep the original
-            # but still try to fix individual fields
             state["errors"].append(f"Error fixing NaN values in condition {condition.id}: {str(e)}")
-
-            # Manual replacement of NaN values in original condition
-            for key, value in fixed_dict.items():
-                if hasattr(condition, key) and value is not None:
-                    try:
-                        setattr(condition, key, value)
-                    except:
-                        pass
-
-    # Update the conditions in the state
-    state["analyzed_conditions"] = conditions
 
     return state

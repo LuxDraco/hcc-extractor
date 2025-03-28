@@ -7,12 +7,11 @@ in the database as they progress through the processing pipeline.
 import logging
 import os
 import uuid
+from typing import Optional, Union, Any
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, update
 from sqlalchemy.orm import sessionmaker
-
-from analyzer.db.models.document import ProcessingStatus
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,12 +23,14 @@ load_dotenv()
 class DatabaseUpdater:
     """Class to handle database updates."""
 
-    def __init__(self,
-                 host=None,
-                 port=None,
-                 user=None,
-                 password=None,
-                 db_name=None):
+    def __init__(
+            self,
+            host=None,
+            port=None,
+            user=None,
+            password=None,
+            db_name=None
+    ):
         """
         Initialize the database updater.
 
@@ -43,7 +44,7 @@ class DatabaseUpdater:
         self.host = host or os.environ.get("POSTGRES_HOST", "postgres")
         self.port = port or os.environ.get("POSTGRES_PORT", "5432")
         self.user = user or os.environ.get("POSTGRES_USER", "postgres")
-        self.password = password or "postgres"  # Default value
+        self.password = password or os.environ.get("POSTGRES_PASSWORD", "postgres")
         self.db_name = db_name or os.environ.get("POSTGRES_DB", "hcc_extractor")
 
         self.engine = self._create_engine()
@@ -56,11 +57,13 @@ class DatabaseUpdater:
         return create_engine(connection_string)
 
     def update_document_analysis_status(
-            self, document_id, total_conditions=None,
-            hcc_relevant_conditions=None,
-            analysis_result_path=None,
-            status: ProcessingStatus = ProcessingStatus.ANALYZING,
-            extraction_result_path=None
+            self,
+            document_id: str,
+            total_conditions: Optional[int] = None,
+            hcc_relevant_conditions: Optional[int] = None,
+            analysis_result_path: Optional[str] = None,
+            status: Union[str, Any] = None,
+            extraction_result_path: Optional[str] = None
     ):
         """
         Update the document status during analysis.
@@ -71,18 +74,34 @@ class DatabaseUpdater:
             hcc_relevant_conditions: Number of HCC-relevant conditions
             analysis_result_path: Path to the analysis results file
             status: Current processing status
+            extraction_result_path: Path to the extraction results file
         """
+        session = None
         try:
             session = self.Session()
+
             # Import here to avoid circular import issues
             from analyzer.db.models.document import Document, ProcessingStatus
 
             # Convert status to enum if it's a string
             if isinstance(status, str):
-                status = ProcessingStatus[status]
+                try:
+                    status = ProcessingStatus[status]
+                except (KeyError, TypeError):
+                    logger.warning(f"Invalid status: {status}, using original value")
+
+            # Convert UUID string to UUID object safely
+            try:
+                document_uuid = uuid.UUID(document_id)
+            except (ValueError, TypeError, AttributeError):
+                logger.error(f"Error updating document status: badly formed hexadecimal UUID string")
+                return
 
             # Prepare values to update
-            values = {"status": status}
+            values = {}
+
+            if status is not None:
+                values["status"] = status
 
             if total_conditions is not None:
                 values["total_conditions"] = total_conditions
@@ -96,10 +115,15 @@ class DatabaseUpdater:
             if extraction_result_path is not None:
                 values["extraction_result_path"] = extraction_result_path
 
+            # Skip update if no values to update
+            if not values:
+                logger.warning("No values provided for update")
+                return
+
             # Create and execute the update
             stmt = (
                 update(Document)
-                .where(Document.id == uuid.UUID(document_id))
+                .where(Document.id == document_uuid)
                 .values(**values)
             )
 
